@@ -58,8 +58,8 @@ local tabs = {
 	Main = tabGroups.TabGroup1:Tab({ Name = "Thông báo Update", Image = "rbxassetid://81478297548754" }),
 	Esp = tabGroups.TabGroup1:Tab({ Name = "Định vị", Image = "rbxassetid://84727577248856" }),
 	Aim = tabGroups.TabGroup1:Tab({ Name = "Aimbot", Image = "rbxassetid://130939958971532" }),
-	Uni = tabGroups.TabGroup1:Tab({ Name = "Universal", Image = "rbxassetid://130939958971532" }),
-	Sha = tabGroups.TabGroup1:Tab({ Name = "Đồ họa", Image = "rbxassetid://130939958971532" }),
+	Uni = tabGroups.TabGroup1:Tab({ Name = "Universal", Image = "rbxassetid://122760395538267" }),
+	Sha = tabGroups.TabGroup1:Tab({ Name = "Đồ họa", Image = "rbxassetid://87916652848972" }),
 	Settings = tabGroups.TabGroup1:Tab({ Name = "Cài đặt", Image = "rbxassetid://75791170485208" })
 }
 
@@ -201,7 +201,7 @@ end
 
 -- Toggle hiển thị tên
 sections.EspSection1:Toggle({
-    Name = "Name ESP",
+    Name = "Hiện Tên",
     Default = false,
     Callback = function(value)
         ShowNamesEnabled = value
@@ -324,7 +324,7 @@ local ESP = {
 local espConnections = {}
 
 sections.Esp2Section1:Toggle({
-    Name = "Health Bar",
+    Name = "Hiện Máu",
     Default = false,
     Callback = function(value)
         ESP.Enabled = value
@@ -545,7 +545,7 @@ _G.Settings = {
 }
 
 sections.EspSection1:Colorpicker({
-    Name = "Tracer Color",
+    Name = "Màu Đường Kẻ",
     Default = Color3.fromRGB(255, 0, 0),
     Callback = function(color)
         _G.Settings.DefaultColor = color
@@ -558,7 +558,7 @@ sections.EspSection1:Colorpicker({
 })
 
 sections.EspSection1:Dropdown({
-    Name = "Tracer Position",
+    Name = "Vị Trí Đường Kẻ",
     Default = "Center",
     Options = {"Center", "Top", "Bottom"},
     Callback = function(Value)
@@ -567,7 +567,7 @@ sections.EspSection1:Dropdown({
 })
 
 sections.EspSection1:Toggle({
-    Name = "Enable Tracers",
+    Name = "Hiện Đường Kẻ",
     Default = false,
     Callback = function(Value)
         _G.Settings.Enabled = Value
@@ -754,11 +754,6 @@ _G.ChamsSettings = {
     }
 }
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local LocalPlayer = Players.LocalPlayer
-
 local function IsTeammate(Player)
     if not _G.ChamsSettings.TeamCheck then return false end
     return Player.Team == LocalPlayer.Team
@@ -869,7 +864,7 @@ end
 
 -- Add these to your UI section
 sections.Esp2Section1:Toggle({
-    Name = "Enable Chams",
+    Name = "Hiện Chams",
     Default = false,
     Callback = function(Value)
         _G.ChamsSettings.Enabled = Value
@@ -905,7 +900,7 @@ sections.Esp2Section1:Toggle({
 })
 
 sections.Esp2Section1:Colorpicker({
-    Name = "Chams Fill Color",
+    Name = "Màu Chính Chams",
     Default = Color3.fromRGB(0, 255, 0),
     Callback = function(color)
         _G.ChamsSettings.Colors.Fill = color
@@ -913,7 +908,7 @@ sections.Esp2Section1:Colorpicker({
 })
 
 sections.Esp2Section1:Colorpicker({
-    Name = "Chams Outline Color",
+    Name = "Màu Viền Chams",
     Default = Color3.fromRGB(255, 255, 255),
     Callback = function(color)
         _G.ChamsSettings.Colors.Outline = color
@@ -926,7 +921,7 @@ sections.Esp2Section1:Header({
 })
 
 sections.Esp2Section1:Paragraph({
-	Header = "Causing lag for mobile",
+	Header = "Không Nên Bật Vì Nó Sẽ Gây Lag Máy Bạn: Chỉ Dùng Cho PC",
 	Body = "Lag"
 })
 
@@ -935,7 +930,7 @@ local SkeletonTeamCheck = false
 local SkeletonColor = Color3.fromRGB(255, 255, 255)
 
 sections.Esp2Section1:Toggle({
-    Name = "Skeleton ESP",
+    Name = "Hiện Xương",
     Default = false,
     Callback = function(value)
         if value then
@@ -996,7 +991,7 @@ sections.Esp2Section1:Toggle({
 }, "SkeletonTeamCheck")
 
 sections.Esp2Section1:Colorpicker({
-    Name = "Skeleton Color",
+    Name = "Màu Xương",
     Default = Color3.fromRGB(255, 255, 255),
     Callback = function(color)
         SkeletonColor = color
@@ -1150,7 +1145,7 @@ end
 
 -- UI Section
 sections.EspSection1:Toggle({
-    Name = "ESP Box2D",
+    Name = "Hiện Khung Viền",
     Default = false,
     Callback = function(value)
         ESP.Enabled = value
@@ -1166,7 +1161,7 @@ sections.EspSection1:Toggle({
 })
 
 sections.EspSection1:Colorpicker({
-    Name = "Box Color",
+    Name = "Màu Khung Viền",
     Default = Color3.fromRGB(255, 255, 255),
     Callback = function(color)
         ESP.BoxColor = color
@@ -1293,7 +1288,7 @@ end
 
 -- UI Controls
 sections.AimSection1:Toggle({
-    Name = "Enable Aimbot",
+    Name = "Bật Aimbot",
     Default = false,
     Callback = function(value)
         settings.aimbotEnabled = value
@@ -1335,7 +1330,7 @@ sections.AimSection1:Toggle({
 }, "Toggle")
 
 sections.AimSection1:Toggle({
-    Name = "Wall Check",
+    Name = "Không Aimbot Khi Có Vật Cản",
     Default = true,
     Callback = function(value)
         settings.wallCheck = value
@@ -1343,7 +1338,7 @@ sections.AimSection1:Toggle({
 }, "Toggle")
 
 sections.AimSection1:Toggle({
-    Name = "Show FOV",
+    Name = "Hiện Vòng Aim",
     Default = true,
     Callback = function(value)
         settings.showFov = value
@@ -1354,7 +1349,7 @@ sections.AimSection1:Toggle({
 }, "Toggle")
 
 sections.AimSection1:Slider({
-    Name = "FOV Size",
+    Name = "Kích Thước Vòng",
     Default = 150,
     Minimum = 0,
     Maximum = 500,
@@ -1369,7 +1364,7 @@ sections.AimSection1:Slider({
 }, "Slider")
 
 sections.AimSection1:Slider({
-    Name = "Smoothness",
+    Name = "Tốc Độ Aim",
     Default = 50,
     Minimum = 1,
     Maximum = 100,
@@ -1381,7 +1376,7 @@ sections.AimSection1:Slider({
 }, "Slider")
 
 sections.AimSection1:Input({
-    Name = "Max Distance",
+    Name = "Khoảng Cách Aim",
     Placeholder = "Enter distance (1-5000)",
     AcceptedCharacters = "Numbers",
     Callback = function(input)
@@ -1420,7 +1415,7 @@ local defaultExposure = lighting.ExposureCompensation
 local defaultAmbient = lighting.Ambient
 
 sections.ShaSection1:Slider({
-    Name = "Lighting Brightness",
+    Name = "Độ Sáng Chiếu Sáng",
     Default = 0,
     Minimum = 0,
     Maximum = 100,
@@ -1451,7 +1446,7 @@ local defaultGlobalShadows = lighting.GlobalShadows
 local defaultOutdoorAmbient = lighting.OutdoorAmbient
 
 sections.ShaSection1:Toggle({
-    Name = "Full Bright",
+    Name = "Không Tối",
     Default = false,
     Callback = function(Value)
         if Value then
@@ -1795,16 +1790,16 @@ end)
 sections.MainSection1:Divider()
 
 sections.MainSection1:Header({
-	Text = "Tiêu đề #2"
+	Text = "Lưu ý Nút Ẩn UI Sẽ Lưu Vị Trí Nên Bạn Hãy Nó Đến Một Nên Thích Hợp Nhé!"
 })
 
 sections.MainSection1:Paragraph({
 	Header = "Thông tin",
-	Body = "Đang bản demo đang tốt ưu"
+	Body = "Update Sửa Lỗi Và Thêm ▷Aimbot ▷Đồ Họa ▷Universal"
 })
 
 sections.MainSection1:Label({
-	Text = "V0.1.1."
+	Text = "VIP Ver•1.2"
 })
 
 sections.MainSection1:SubLabel({
