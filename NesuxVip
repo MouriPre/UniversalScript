@@ -1,0 +1,1822 @@
+local MacLib = loadstring(game:HttpGet("https://github.com/biggaboy212/Maclib/releases/latest/download/maclib.txt"))()
+
+local Window = MacLib:Window({
+	Title = "Nesux X MacUI",
+	Subtitle = "Bởi Muori Bản Trả Phí.",
+	Size = UDim2.fromOffset(868, 650),
+	DragStyle = 1,
+	DisabledWindowControls = {},
+	ShowUserInfo = true,
+	Keybind = Enum.KeyCode.RightControl,
+	AcrylicBlur = true,
+})
+
+local globalSettings = {
+	UIBlurToggle = Window:GlobalSetting({
+		Name = "Làm mờ giao diện người dùng",
+		Default = Window:GetAcrylicBlurState(),
+		Callback = function(bool)
+			Window:SetAcrylicBlurState(bool)
+			Window:Notify({
+				Title = Window.Settings.Title,
+				Description = (bool and "Bật" or "Tắt") .. " Làm mờ giao diện người dùng",
+				Lifetime = 5
+			})
+		end,
+	}),
+	NotificationToggler = Window:GlobalSetting({
+		Name = "Thông báo",
+		Default = Window:GetNotificationsState(),
+		Callback = function(bool)
+			Window:SetNotificationsState(bool)
+			Window:Notify({
+				Title = Window.Settings.Title,
+				Description = (bool and "Bật" or "Tắt") .. " Thông báo",
+				Lifetime = 5
+			})
+		end,
+	}),
+	ShowUserInfo = Window:GlobalSetting({
+		Name = "Hiển thị thông tin người dùng",
+		Default = Window:GetUserInfoState(),
+		Callback = function(bool)
+			Window:SetUserInfoState(bool)
+			Window:Notify({
+				Title = Window.Settings.Title,
+				Description = (bool and "Đang hiển thị" or "Đã che lại") .. " Hiển thị thông tin người dùng",
+				Lifetime = 5
+			})
+		end,
+	})
+}
+
+local tabGroups = {
+	TabGroup1 = Window:TabGroup()
+}
+
+local tabs = {
+	Main = tabGroups.TabGroup1:Tab({ Name = "Thông báo Update", Image = "rbxassetid://81478297548754" }),
+	Esp = tabGroups.TabGroup1:Tab({ Name = "Định vị", Image = "rbxassetid://84727577248856" }),
+	Aim = tabGroups.TabGroup1:Tab({ Name = "Aimbot", Image = "rbxassetid://130939958971532" }),
+	Uni = tabGroups.TabGroup1:Tab({ Name = "Universal", Image = "rbxassetid://130939958971532" }),
+	Sha = tabGroups.TabGroup1:Tab({ Name = "Đồ họa", Image = "rbxassetid://130939958971532" }),
+	Settings = tabGroups.TabGroup1:Tab({ Name = "Cài đặt", Image = "rbxassetid://75791170485208" })
+}
+
+local sections = {
+	MainSection1 = tabs.Main:Section({ Side = "Left" }),
+	EspSection1 = tabs.Esp:Section({ Side = "Left" }),
+	Esp2Section1 = tabs.Esp:Section({ Side = "Right" }),
+	AimSection1 = tabs.Aim:Section({ Side = "Left" }),
+	UniSection1 = tabs.Uni:Section({ Side = "Left" }),
+	ShaSection1 = tabs.Sha:Section({ Side = "Left" }),
+}
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local player = Players.LocalPlayer
+------------------------------------------------------------------------------------------------------------
+sections.EspSection1:Header({
+	Name = "ESP Tên Người Chơi"
+})
+
+local ShowNamesEnabled = false
+local NameSize = 14
+local TeamCheckEnabled = false
+local NameColor = Color3.fromRGB(255, 255, 255) -- Màu mặc định
+local SelectedFont = Enum.Font.SourceSansBold -- Font mặc định
+
+local fontOptions = {
+    "SourceSans",
+    "SourceSansBold",
+    "SourceSansLight",
+    "SourceSansItalic",
+    "Highway",
+    "Arcade",
+    "Arial",
+    "ArialBold",
+    "Bodoni",
+    "Cartoon",
+    "Code",
+    "Creepster",
+    "DenkOne",
+    "Fantasy",
+    "Garamond",
+    "Gotham",
+    "GothamBlack",
+    "GothamBold",
+    "GothamMedium",
+    "GrenzeGotisch",
+    "IndieFlower",
+    "JosefinSans",
+    "Kalam",
+    "Legacy",
+    "LuckiestGuy",
+    "Merriweather",
+    "Michroma",
+    "Nunito",
+    "Oswald",
+    "PatrickHand",
+    "PermanentMarker",
+    "Roboto",
+    "RobotoCondensed",
+    "RobotoMono",
+    "Salvador",
+    "Sarpanch",
+    "SpecialElite",
+    "TitilliumWeb",
+    "Ubuntu"
+}
+
+local function getFontEnum(fontName)
+    return Enum.Font[fontName]
+end
+
+-- Hàm kiểm tra đối thủ
+local function isEnemyPlayer(player)
+    if not TeamCheckEnabled then return true end
+    if not game.Players.LocalPlayer.Team then return true end 
+    if not player.Team then return true end
+    return player.Team ~= game.Players.LocalPlayer.Team
+end
+
+-- Hàm cập nhật tên
+local function UpdateCustomName(player)
+    local function updateForCharacter(character)
+        if character then
+            local humanoid = character:WaitForChild("Humanoid")
+            if humanoid then
+                humanoid.DisplayDistanceType = ShowNamesEnabled and Enum.HumanoidDisplayDistanceType.None or Enum.HumanoidDisplayDistanceType.Viewer
+            end
+            
+            local head = character:WaitForChild("Head")
+            if head then
+                local nameGui = head:FindFirstChild("NameGui") or Instance.new("BillboardGui")
+                nameGui.Name = "NameGui"
+                nameGui.AlwaysOnTop = true
+                nameGui.Size = UDim2.new(0, 100, 0, 40)
+                nameGui.StudsOffset = Vector3.new(0, 2, 0)
+                nameGui.Parent = head
+
+                local nameLabel = nameGui:FindFirstChild("NameLabel") or Instance.new("TextLabel")
+                nameLabel.Name = "NameLabel"
+                nameLabel.Size = UDim2.new(1, 0, 1, 0)
+                nameLabel.BackgroundTransparency = 1
+                nameLabel.TextColor3 = TeamCheckEnabled and player.TeamColor.Color or NameColor
+                nameLabel.TextStrokeTransparency = 0
+                nameLabel.TextSize = NameSize
+                nameLabel.Font = SelectedFont -- Sử dụng font đã chọn
+                nameLabel.Parent = nameGui
+
+                if ShowNamesEnabled and isEnemyPlayer(player) then
+                    nameGui.Enabled = true
+                    nameLabel.Text = player.Name
+                else
+                    nameGui.Enabled = false
+                end
+            end
+        end
+    end
+
+    if player.Character then
+        updateForCharacter(player.Character)
+    end
+
+    player.CharacterAdded:Connect(updateForCharacter)
+end
+
+local function PlayerAdded(player)
+    if player ~= game.Players.LocalPlayer then
+        UpdateCustomName(player)
+        player:GetPropertyChangedSignal("Team"):Connect(function()
+            UpdateCustomName(player)
+        end)
+    end
+end
+
+-- Toggle hiển thị tên
+sections.EspSection1:Toggle({
+    Name = "Name ESP",
+    Default = false,
+    Callback = function(value)
+        ShowNamesEnabled = value
+        if value then
+            for _, player in pairs(game.Players:GetPlayers()) do
+                if player ~= game.Players.LocalPlayer then
+                    UpdateCustomName(player)
+                end
+            end
+        end
+        
+        game.Players.PlayerAdded:Connect(PlayerAdded)
+
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer then
+                PlayerAdded(player)
+            end
+        end
+    end,
+}, "ShowNames")
+
+-- Toggle kiểm tra đồng đội
+sections.EspSection1:Toggle({
+    Name = "Team Check",
+    Default = false,
+    Callback = function(value)
+        TeamCheckEnabled = value
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer then
+                UpdateCustomName(player)
+            end
+        end
+    end,
+}, "TeamCheck")
+
+-- Slider kích thước tên
+sections.EspSection1:Slider({
+    Name = "Kích thước tên",
+    Default = 14,
+    Minimum = 1,
+    Maximum = 100,
+    DisplayMethod = "Value", -- Hiển thị giá trị số
+    Precision = 0,
+    Callback = function(value)
+        NameSize = value
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player.Character then
+                local head = player.Character:FindFirstChild("Head")
+                if head then
+                    local nameGui = head:FindFirstChild("NameGui")
+                    if nameGui then
+                        local nameLabel = nameGui:FindFirstChild("NameLabel")
+                        if nameLabel then
+                            nameLabel.TextSize = value
+                        end
+                    end
+                end
+            end
+        end
+    end
+}, "NameSize")
+
+-- Colorpicker cho màu tên
+sections.EspSection1:Colorpicker({
+    Name = "Màu tên",
+    Default = Color3.fromRGB(255, 255, 255),
+    Callback = function(color)
+        NameColor = color
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player.Character then
+                local head = player.Character:FindFirstChild("Head")
+                if head then
+                    local nameGui = head:FindFirstChild("NameGui")
+                    if nameGui then
+                        local nameLabel = nameGui:FindFirstChild("NameLabel")
+                        if nameLabel and not TeamCheckEnabled then
+                            nameLabel.TextColor3 = color
+                        end
+                    end
+                end
+            end
+        end
+    end,
+}, "NameColor")
+
+sections.EspSection1:Dropdown({
+    Name = "Phông chữ",
+    Multi = false,
+    Required = true,
+    Options = fontOptions,
+    Default = "SourceSansBold",
+    Callback = function(fontName)
+        SelectedFont = getFontEnum(fontName)
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player.Character then
+                local head = player.Character:FindFirstChild("Head")
+                if head then
+                    local nameGui = head:FindFirstChild("NameGui")
+                    if nameGui then
+                        local nameLabel = nameGui:FindFirstChild("NameLabel")
+                        if nameLabel then
+                            nameLabel.Font = SelectedFont
+                        end
+                    end
+                end
+            end
+        end
+    end,
+}, "NameFont")
+
+-----------------------------------------
+sections.Esp2Section1:Header({
+	Name = "ESP Thanh Máu Và %"
+})
+
+local ESP = {
+    Enabled = false,
+    TeamCheck = false
+}
+local espConnections = {}
+
+sections.Esp2Section1:Toggle({
+    Name = "Health Bar",
+    Default = false,
+    Callback = function(value)
+        ESP.Enabled = value
+        
+        if value then
+            local function CreateESP(player)
+                if player == game.Players.LocalPlayer then return end
+
+                local function IsTeammate()
+                    if not ESP.TeamCheck then return false end
+                    return player.Team == game.Players.LocalPlayer.Team
+                end
+
+                local container = Drawing.new("Square")
+                container.Thickness = 1
+                container.Filled = true
+                container.Transparency = 0.8
+                container.Color = Color3.fromRGB(25, 25, 25)
+
+                local healthBar = Drawing.new("Square")
+                healthBar.Thickness = 1
+                healthBar.Filled = true
+                healthBar.Transparency = 1
+                healthBar.Color = Color3.fromRGB(0, 255, 200)
+
+                local glowEffect = Drawing.new("Square")
+                glowEffect.Thickness = 1
+                glowEffect.Filled = true
+                glowEffect.Transparency = 0.4
+                glowEffect.Color = Color3.fromRGB(0, 255, 200)
+
+                local healthText = Drawing.new("Text")
+                healthText.Center = false
+                healthText.Outline = true
+                healthText.Color = Color3.fromRGB(255, 255, 255)
+                healthText.Font = 3
+                healthText.Size = 12
+
+                local previousHealth = 100
+                local isAnimating = false
+                local flashDuration = 0
+                local originalTransparency = healthBar.Transparency
+
+                local function AnimateHealthChange()
+                    if isAnimating then return end
+                    isAnimating = true
+                    flashDuration = 0
+
+                    local connection = game:GetService("RunService").RenderStepped:Connect(function(delta)
+                        if not isAnimating or not ESP.Enabled then 
+                            isAnimating = false
+                            connection:Disconnect()
+                            return 
+                        end
+                        
+                        flashDuration = flashDuration + delta
+                        if flashDuration >= 0.5 then
+                            isAnimating = false
+                            healthBar.Transparency = originalTransparency
+                            glowEffect.Transparency = 0.4
+                            healthText.Transparency = 1
+                            connection:Disconnect()
+                            return
+                        end
+
+                        local wave = math.abs(math.sin(flashDuration * 30))
+                        healthBar.Transparency = originalTransparency * (0.5 + 0.5 * wave)
+                        glowEffect.Transparency = 0.4 * (0.5 + 0.5 * wave)
+                        healthText.Transparency = 1 * (0.5 + 0.5 * wave)
+                        
+                        local shake = math.random(-1, 1)
+                        healthBar.Position = healthBar.Position + Vector2.new(shake, shake)
+                        glowEffect.Position = glowEffect.Position + Vector2.new(shake, shake)
+                        healthText.Position = healthText.Position + Vector2.new(shake, shake)
+                    end)
+                end
+
+                local function UpdateESP()
+                    if not ESP.Enabled then return end
+                    
+                    if IsTeammate() then
+                        container.Visible = false
+                        healthBar.Visible = false
+                        glowEffect.Visible = false
+                        healthText.Visible = false
+                        return
+                    end
+                    
+                    local character = player.Character
+                    if not character or not character:FindFirstChild("Humanoid") or not character:FindFirstChild("HumanoidRootPart") or not character:FindFirstChild("Head") then
+                        container.Visible = false
+                        healthBar.Visible = false
+                        glowEffect.Visible = false
+                        healthText.Visible = false
+                        return
+                    end
+
+                    local humanoid = character.Humanoid
+                    local head = character.Head
+
+                    local verticalOffset = 2.5
+                    local headPos = head.Position + Vector3.new(0, verticalOffset, 0)
+                    
+                    local headVec, onScreen = workspace.CurrentCamera:WorldToViewportPoint(headPos)
+                    
+                    if not onScreen then
+                        container.Visible = false
+                        healthBar.Visible = false
+                        glowEffect.Visible = false
+                        healthText.Visible = false
+                        return
+                    end
+
+                    local barWidth = 65
+                    local barHeight = 6
+                    local padding = 2
+                    local health = humanoid.Health / humanoid.MaxHealth
+                    local healthPercent = math.floor(health * 100)
+
+                    if healthPercent < previousHealth then
+                        AnimateHealthChange()
+                    end
+                    previousHealth = healthPercent
+
+                    local containerPos = Vector2.new(headVec.X - barWidth/2, headVec.Y - barHeight/2)
+                    
+                    container.Size = Vector2.new(barWidth, barHeight)
+                    container.Position = containerPos
+                    container.Visible = true
+
+                    local targetWidth = (barWidth - padding * 2) * health
+                    local currentWidth = healthBar.Size.X
+                    healthBar.Size = Vector2.new(
+                        currentWidth + (targetWidth - currentWidth) * 0.1,
+                        barHeight - padding * 2
+                    )
+                    healthBar.Position = Vector2.new(containerPos.X + padding, containerPos.Y + padding)
+                    healthBar.Visible = true
+
+                    glowEffect.Size = Vector2.new(healthBar.Size.X, 2)
+                    glowEffect.Position = Vector2.new(containerPos.X + padding, containerPos.Y)
+                    glowEffect.Visible = true
+
+                    local textVerticalOffset = 15
+                    healthText.Text = healthPercent .. "%"
+                    healthText.Position = Vector2.new(
+                        containerPos.X - 2,
+                        containerPos.Y - textVerticalOffset
+                    )
+                    healthText.Visible = true
+                end
+
+                local renderConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                    if not ESP.Enabled then return end
+                    if player.Parent == game:GetService("Players") then
+                        UpdateESP()
+                    else
+                        container:Remove()
+                        healthBar:Remove()
+                        glowEffect:Remove()
+                        healthText:Remove()
+                        renderConnection:Disconnect()
+                    end
+                end)
+
+                table.insert(espConnections, {
+                    container = container,
+                    healthBar = healthBar,
+                    glowEffect = glowEffect,
+                    healthText = healthText,
+                    connection = renderConnection
+                })
+            end
+
+            for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+                if player ~= game.Players.LocalPlayer then
+                    CreateESP(player)
+                end
+            end
+
+            game:GetService("Players").PlayerAdded:Connect(function(player)
+                if player ~= game.Players.LocalPlayer then
+                    CreateESP(player)
+                end
+            end)
+        else
+            for _, esp in ipairs(espConnections) do
+                esp.container:Remove()
+                esp.healthBar:Remove()
+                esp.glowEffect:Remove()
+                esp.healthText:Remove()
+                esp.connection:Disconnect()
+            end
+            table.clear(espConnections)
+        end
+    end
+})
+
+sections.Esp2Section1:Toggle({
+    Name = "Team Check", 
+    Default = false,
+    Callback = function(value)
+        ESP.TeamCheck = value
+    end
+})
+--------------------------------------------
+sections.EspSection1:Header({
+	Name = "ESP Tracer"
+})
+
+_G.Settings = {
+    Enabled = false,
+    TeamCheck = false,
+    TracerThickness = 1.5,
+    DefaultColor = Color3.fromRGB(255, 0, 0),
+    TracerPosition = "Center",
+    AnimationSpeed = 0.5
+}
+
+sections.EspSection1:Colorpicker({
+    Name = "Tracer Color",
+    Default = Color3.fromRGB(255, 0, 0),
+    Callback = function(color)
+        _G.Settings.DefaultColor = color
+        if _G.TracerObjects then
+            for _, tracers in pairs(_G.TracerObjects) do
+                tracers.main.Color = color
+            end
+        end
+    end
+})
+
+sections.EspSection1:Dropdown({
+    Name = "Tracer Position",
+    Default = "Center",
+    Options = {"Center", "Top", "Bottom"},
+    Callback = function(Value)
+        _G.Settings.TracerPosition = Value
+    end
+})
+
+sections.EspSection1:Toggle({
+    Name = "Enable Tracers",
+    Default = false,
+    Callback = function(Value)
+        _G.Settings.Enabled = Value
+        
+        if not _G.TracerInitialized then
+            _G.TracerInitialized = true
+            
+            if not Drawing then
+                Window:Notify({
+                    Title = "Error"
+                })
+                return
+            end
+            
+            local RunService = game:GetService("RunService")
+            local Players = game:GetService("Players")
+            local Camera = workspace.CurrentCamera
+            local LocalPlayer = Players.LocalPlayer
+            
+            _G.TracerObjects = {}
+            
+            local function CreatePlayerTracers(player)
+                if player ~= LocalPlayer then
+                    if _G.TracerObjects[player.Name] then
+                        _G.TracerObjects[player.Name].main:Remove()
+                        _G.TracerObjects[player.Name].glow:Remove()
+                    end
+                    
+                    local tracer = Drawing.new("Line")
+                    tracer.Thickness = _G.Settings.TracerThickness
+                    tracer.Color = _G.Settings.DefaultColor
+                    tracer.Transparency = 0.6
+                    tracer.ZIndex = 1
+                    
+                    local glow = Drawing.new("Line")
+                    glow.Thickness = _G.Settings.TracerThickness + 2
+                    glow.Color = Color3.new(1, 1, 1)
+                    glow.Transparency = 0.3
+                    glow.ZIndex = 0
+                    
+                    _G.TracerObjects[player.Name] = {
+                        main = tracer,
+                        glow = glow,
+                        currentPos = Vector2.new(),
+                        targetPos = Vector2.new()
+                    }
+                end
+            end
+
+            local function lerp(a, b, t)
+                return a + (b - a) * t
+            end
+
+            local function IsTeamMate(player)
+                if _G.Settings.TeamCheck then
+                    return player.Team == LocalPlayer.Team
+                end
+                return false
+            end
+            
+            local function UpdateTracers()
+                if not _G.Settings.Enabled then
+                    for _, tracers in pairs(_G.TracerObjects) do
+                        tracers.main.Visible = false
+                        tracers.glow.Visible = false
+                    end
+                    return
+                end
+                
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and not _G.TracerObjects[player.Name] then
+                        CreatePlayerTracers(player)
+                    end
+                end
+                
+                local viewportSize = Camera.ViewportSize
+                local startPos
+                
+                if _G.Settings.TracerPosition == "Center" then
+                    startPos = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+                elseif _G.Settings.TracerPosition == "Top" then
+                    startPos = Vector2.new(viewportSize.X / 2, 0)
+                elseif _G.Settings.TracerPosition == "Bottom" then
+                    startPos = Vector2.new(viewportSize.X / 2, viewportSize.Y)
+                end
+                
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer then
+                        local tracers = _G.TracerObjects[player.Name]
+                        if not tracers then
+                            CreatePlayerTracers(player)
+                            tracers = _G.TracerObjects[player.Name]
+                        end
+                        
+                        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                            if IsTeamMate(player) then
+                                tracers.main.Visible = false
+                                tracers.glow.Visible = false
+                                continue
+                            end
+
+                            local hrp = player.Character.HumanoidRootPart
+                            local vector, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                            
+                            if onScreen then
+                                local endPos = Vector2.new(vector.X, vector.Y)
+                                tracers.targetPos = endPos
+                                
+                                tracers.currentPos = Vector2.new(
+                                    lerp(tracers.currentPos.X, tracers.targetPos.X, _G.Settings.AnimationSpeed),
+                                    lerp(tracers.currentPos.Y, tracers.targetPos.Y, _G.Settings.AnimationSpeed)
+                                )
+                                
+                                tracers.main.From = startPos
+                                tracers.main.To = tracers.currentPos
+                                tracers.main.Visible = true
+                                tracers.main.Color = _G.Settings.DefaultColor
+                                
+                                tracers.glow.From = startPos
+                                tracers.glow.To = tracers.currentPos
+                                tracers.glow.Visible = true
+                            else
+                                tracers.main.Visible = false
+                                tracers.glow.Visible = false
+                            end
+                        else
+                            tracers.main.Visible = false
+                            tracers.glow.Visible = false
+                        end
+                    end
+                end
+            end
+            
+            Players.PlayerRemoving:Connect(function(player)
+                local tracers = _G.TracerObjects[player.Name]
+                if tracers then
+                    tracers.main:Remove()
+                    tracers.glow:Remove()
+                    _G.TracerObjects[player.Name] = nil
+                end
+            end)
+
+            Players.PlayerAdded:Connect(function(player)
+                CreatePlayerTracers(player)
+            end)
+            
+            for _, player in pairs(Players:GetPlayers()) do
+                CreatePlayerTracers(player)
+            end
+            
+            RunService.RenderStepped:Connect(UpdateTracers)
+        end
+    end
+})
+
+sections.EspSection1:Toggle({
+    Name = "Team Check",
+    Default = false,
+    Callback = function(Value)
+        _G.Settings.TeamCheck = Value
+    end
+})
+
+-------------------------------------
+sections.Esp2Section1:Header({
+	Name = "ESP Chams"
+})
+
+_G.ChamsSettings = {
+    Enabled = false,
+    TeamCheck = false,
+    FillTransparency = 0.5,
+    OutlineTransparency = 0,
+    
+    Colors = {
+        Fill = Color3.fromRGB(0, 255, 0),
+        Outline = Color3.fromRGB(255, 255, 255)
+    },
+    
+    Animation = {
+        Duration = 1,
+        Style = Enum.EasingStyle.Sine,
+        Direction = Enum.EasingDirection.Out
+    }
+}
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+local function IsTeammate(Player)
+    if not _G.ChamsSettings.TeamCheck then return false end
+    return Player.Team == LocalPlayer.Team
+end
+
+local function ApplyChams(Player)
+    local Connections = {}
+    local CurrentHighlighter
+    
+    local function Setup(Character)
+        if not Character then return end
+        
+        -- Clean up existing highlighter if any
+        if CurrentHighlighter then
+            CurrentHighlighter:Destroy()
+        end
+        
+        local Highlighter = Instance.new("Highlight")
+        CurrentHighlighter = Highlighter
+        Highlighter.Parent = Character
+        
+        Highlighter.FillTransparency = 1
+        Highlighter.OutlineTransparency = 1
+        
+        local AnimationInfo = TweenInfo.new(
+            _G.ChamsSettings.Animation.Duration,
+            _G.ChamsSettings.Animation.Style,
+            _G.ChamsSettings.Animation.Direction
+        )
+        
+        local FillTween = TweenService:Create(Highlighter, AnimationInfo, {
+            FillTransparency = _G.ChamsSettings.FillTransparency
+        })
+        
+        local OutlineTween = TweenService:Create(Highlighter, AnimationInfo, {
+            OutlineTransparency = _G.ChamsSettings.OutlineTransparency
+        })
+        
+        FillTween:Play()
+        OutlineTween:Play()
+        
+        local function Update()
+            if not _G.ChamsSettings.Enabled then
+                Highlighter.Enabled = false
+                return
+            end
+            
+            if IsTeammate(Player) then
+                Highlighter.Enabled = false
+                return
+            end
+            
+            Highlighter.Enabled = true
+            Highlighter.FillColor = _G.ChamsSettings.Colors.Fill
+            Highlighter.OutlineColor = _G.ChamsSettings.Colors.Outline
+        end
+        
+        local UpdateConnection = RunService.RenderStepped:Connect(Update)
+        table.insert(Connections, UpdateConnection)
+        
+        local Humanoid = Character:FindFirstChild("Humanoid")
+        if Humanoid then
+            table.insert(Connections, Humanoid.Died:Connect(function()
+                local FadeOutTween = TweenService:Create(Highlighter, TweenInfo.new(0.5), {
+                    FillTransparency = 1,
+                    OutlineTransparency = 1
+                })
+                FadeOutTween.Completed:Connect(function()
+                    Highlighter:Destroy()
+                end)
+                FadeOutTween:Play()
+            end))
+        end
+    end
+    
+    -- Initial setup
+    if Player.Character then
+        Setup(Player.Character)
+    end
+    
+    -- Handle character respawning
+    local CharacterAddedConnection = Player.CharacterAdded:Connect(function(Character)
+        task.wait() -- Wait for character to fully load
+        Setup(Character)
+    end)
+    
+    table.insert(Connections, CharacterAddedConnection)
+    
+    -- Cleanup function
+    local function Cleanup()
+        for _, Connection in pairs(Connections) do
+            Connection:Disconnect()
+        end
+        if CurrentHighlighter then
+            CurrentHighlighter:Destroy()
+        end
+    end
+    
+    -- Handle player removal
+    table.insert(Connections, Player.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            Cleanup()
+        end
+    end))
+    
+    return Cleanup
+end
+
+-- Add these to your UI section
+sections.Esp2Section1:Toggle({
+    Name = "Enable Chams",
+    Default = false,
+    Callback = function(Value)
+        _G.ChamsSettings.Enabled = Value
+        
+        if Value then
+            for _, Player in pairs(Players:GetPlayers()) do
+                if Player ~= LocalPlayer then
+                    task.spawn(function()
+                        task.wait(math.random() * 0.3)
+                        ApplyChams(Player)
+                    end)
+                end
+            end
+            
+            if not _G.ChamsInitialized then
+                _G.ChamsInitialized = true
+                Players.PlayerAdded:Connect(function(Player)
+                    if Player ~= LocalPlayer then
+                        ApplyChams(Player)
+                    end
+                end)
+            end
+        end
+    end
+})
+
+sections.Esp2Section1:Toggle({
+    Name = "Team Check",
+    Default = false,
+    Callback = function(Value)
+        _G.ChamsSettings.TeamCheck = Value
+    end
+})
+
+sections.Esp2Section1:Colorpicker({
+    Name = "Chams Fill Color",
+    Default = Color3.fromRGB(0, 255, 0),
+    Callback = function(color)
+        _G.ChamsSettings.Colors.Fill = color
+    end
+})
+
+sections.Esp2Section1:Colorpicker({
+    Name = "Chams Outline Color",
+    Default = Color3.fromRGB(255, 255, 255),
+    Callback = function(color)
+        _G.ChamsSettings.Colors.Outline = color
+    end
+})
+
+------------------------------------------
+sections.Esp2Section1:Header({
+	Name = "ESP Skeleton"
+})
+
+sections.Esp2Section1:Paragraph({
+	Header = "Causing lag for mobile",
+	Body = "Lag"
+})
+
+
+local SkeletonTeamCheck = false
+local SkeletonColor = Color3.fromRGB(255, 255, 255)
+
+sections.Esp2Section1:Toggle({
+    Name = "Skeleton ESP",
+    Default = false,
+    Callback = function(value)
+        if value then
+            RunService:BindToRenderStep("SkeletonESP", Enum.RenderPriority.Camera.Value, function()
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer then
+                        if SkeletonTeamCheck and player.Team == LocalPlayer.Team then
+                            continue
+                        end
+
+                        local character = player.Character
+                        if character then
+                            for _, part in pairs(character:GetChildren()) do
+                                if part:IsA("BasePart") then
+                                    for _, motor in pairs(part:GetChildren()) do
+                                        if motor:IsA("Motor6D") then
+                                            local part0 = motor.Part0
+                                            local part1 = motor.Part1
+                                            
+                                            if part0 and part1 then
+                                                local p0 = workspace.CurrentCamera:WorldToViewportPoint(part0.Position)
+                                                local p1 = workspace.CurrentCamera:WorldToViewportPoint(part1.Position)
+                                                
+                                                if p0.Z > 0 and p1.Z > 0 then
+                                                    local line = Drawing.new("Line")
+                                                    line.Visible = true
+                                                    line.From = Vector2.new(p0.X, p0.Y)
+                                                    line.To = Vector2.new(p1.X, p1.Y)
+                                                    line.Color = SkeletonColor
+                                                    line.Thickness = 1
+                                                    line.Transparency = 1
+                                                    
+                                                    task.delay(1/60, function()
+                                                        line:Remove()
+                                                    end)
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            RunService:UnbindFromRenderStep("SkeletonESP")
+        end
+    end,
+}, "SkeletonESP")
+
+sections.Esp2Section1:Toggle({
+    Name = "Team Check",
+    Default = false,
+    Callback = function(value)
+        SkeletonTeamCheck = value
+    end,
+}, "SkeletonTeamCheck")
+
+sections.Esp2Section1:Colorpicker({
+    Name = "Skeleton Color",
+    Default = Color3.fromRGB(255, 255, 255),
+    Callback = function(color)
+        SkeletonColor = color
+    end,
+}, "SkeletonColor")
+-------------------------------------
+sections.EspSection1:Header({
+	Name = "ESP Box"
+})
+
+-- ESP Settings
+local ESP = {
+    Enabled = false,
+    TeamCheck = false,
+    BoxColor = Color3.fromRGB(255, 255, 255),
+    BoxThickness = 1.5,
+    BoxTransparency = 1,
+    CornerSize = 5,
+    GlowColor = Color3.fromRGB(255, 255, 200),
+    GlowThickness = 3.5,
+    GlowTransparency = 0.5
+}
+
+-- Create ESP boxes table
+local espBoxes = {}
+
+-- ESP Function
+local function CreateEsp(player)
+    local Box = {}
+    local Corners = {}
+    local Glow = {}
+    
+    -- Create glow effect
+    for i = 1, 12 do
+        local glow = Drawing.new("Line")
+        glow.Thickness = ESP.GlowThickness
+        glow.Color = ESP.GlowColor
+        glow.Transparency = ESP.GlowTransparency
+        Glow[i] = glow
+    end
+    
+    -- Create box lines
+    for i = 1, 12 do
+        local line = Drawing.new("Line")
+        line.Thickness = ESP.BoxThickness
+        line.Color = ESP.BoxColor
+        line.Transparency = ESP.BoxTransparency
+        if i <= 8 then
+            Box[i] = line
+        else
+            Corners[i-8] = line
+        end
+    end
+    
+    -- Update ESP box
+    local function UpdateEsp()
+        local connection
+        connection = RunService.RenderStepped:Connect(function()
+            if not ESP.Enabled then
+                for _, v in pairs(Box) do v.Visible = false end
+                for _, v in pairs(Corners) do v.Visible = false end
+                for _, v in pairs(Glow) do v.Visible = false end
+                return
+            end
+
+            if ESP.TeamCheck and player.Team == LocalPlayer.Team then
+                for _, v in pairs(Box) do v.Visible = false end
+                for _, v in pairs(Corners) do v.Visible = false end
+                for _, v in pairs(Glow) do v.Visible = false end
+                return
+            end
+
+            if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") or not player.Character:FindFirstChild("Humanoid") or player.Character.Humanoid.Health <= 0 then
+                for _, v in pairs(Box) do v.Visible = false end
+                for _, v in pairs(Corners) do v.Visible = false end
+                for _, v in pairs(Glow) do v.Visible = false end
+                return
+            end
+
+            local character = player.Character
+            local HumanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+            local Head = character:FindFirstChild("Head")
+
+            if HumanoidRootPart and Head then
+                local Vector, OnScreen = Camera:WorldToViewportPoint(HumanoidRootPart.Position)
+                
+                if OnScreen then
+                    local Size = (Camera:WorldToViewportPoint(Head.Position - Vector3.new(0, 3, 0)).Y - Camera:WorldToViewportPoint(Head.Position + Vector3.new(0, 2.5, 0)).Y) / 2
+                    local BoxSize = Vector2.new(Size * 1, Size * 1.5)
+                    
+                    local Top1 = Vector2.new(Vector.X - BoxSize.X, Vector.Y - BoxSize.Y)
+                    local Top2 = Vector2.new(Vector.X + BoxSize.X, Vector.Y - BoxSize.Y)
+                    local Bottom1 = Vector2.new(Vector.X - BoxSize.X, Vector.Y + BoxSize.Y)
+                    local Bottom2 = Vector2.new(Vector.X + BoxSize.X, Vector.Y + BoxSize.Y)
+                    
+                    -- Main box
+                    Box[1].From = Top1
+                    Box[1].To = Top2
+                    Box[2].From = Bottom1
+                    Box[2].To = Bottom2
+                    Box[3].From = Top1
+                    Box[3].To = Bottom1
+                    Box[4].From = Top2
+                    Box[4].To = Bottom2
+                    
+                    -- Glow effect
+                    Glow[1].From = Top1
+                    Glow[1].To = Top2
+                    Glow[2].From = Bottom1
+                    Glow[2].To = Bottom2
+                    Glow[3].From = Top1
+                    Glow[3].To = Bottom1
+                    Glow[4].From = Top2
+                    Glow[4].To = Bottom2
+                    
+                    -- Corner decorations
+                    Corners[1].From = Top1
+                    Corners[1].To = Top1 + Vector2.new(ESP.CornerSize, 0)
+                    Corners[2].From = Top1
+                    Corners[2].To = Top1 + Vector2.new(0, ESP.CornerSize)
+                    Corners[3].From = Top2
+                    Corners[3].To = Top2 + Vector2.new(-ESP.CornerSize, 0)
+                    Corners[4].From = Top2
+                    Corners[4].To = Top2 + Vector2.new(0, ESP.CornerSize)
+                    
+                    -- Update colors
+                    for _, v in pairs(Box) do
+                        v.Visible = true
+                        v.Color = ESP.BoxColor
+                    end
+                    for _, v in pairs(Corners) do
+                        v.Visible = true
+                        v.Color = ESP.BoxColor
+                    end
+                    for _, v in pairs(Glow) do
+                        v.Visible = true
+                        v.Color = ESP.GlowColor
+                    end
+                else
+                    for _, v in pairs(Box) do v.Visible = false end
+                    for _, v in pairs(Corners) do v.Visible = false end
+                    for _, v in pairs(Glow) do v.Visible = false end
+                end
+            end
+        end)
+    end
+    
+    UpdateEsp()
+    espBoxes[player] = {Box = Box, Corners = Corners, Glow = Glow}
+end
+
+-- UI Section
+sections.EspSection1:Toggle({
+    Name = "ESP Box2D",
+    Default = false,
+    Callback = function(value)
+        ESP.Enabled = value
+    end
+})
+
+sections.EspSection1:Toggle({
+    Name = "Team Check",
+    Default = false,
+    Callback = function(value)
+        ESP.TeamCheck = value
+    end
+})
+
+sections.EspSection1:Colorpicker({
+    Name = "Box Color",
+    Default = Color3.fromRGB(255, 255, 255),
+    Callback = function(color)
+        ESP.BoxColor = color
+    end
+})
+
+-- Create ESP for existing players
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        CreateEsp(player)
+    end
+end
+
+-- Handle new players joining
+Players.PlayerAdded:Connect(function(player)
+    if player ~= LocalPlayer then
+        CreateEsp(player)
+    end
+end)
+
+-- Handle players leaving
+Players.PlayerRemoving:Connect(function(player)
+    if espBoxes[player] then
+        for _, v in pairs(espBoxes[player].Box) do v:Remove() end
+        for _, v in pairs(espBoxes[player].Corners) do v:Remove() end
+        for _, v in pairs(espBoxes[player].Glow) do v:Remove() end
+        espBoxes[player] = nil
+    end
+end)
+-----------------------------------
+sections.AimSection1:Header({
+	Name = "Aimbot Player"
+})
+
+
+local settings = {
+    aimbotEnabled = false,
+    teamCheck = false,
+    wallCheck = true,
+    fovRadius = 150,
+    fovColor = Color3.fromRGB(0, 255, 255),
+    fovThickness = 1,
+    maxDistance = 1000,
+    smoothness = 0.5,
+    showFov = true,
+    fovOffset = Vector2.new(0, 0)
+}
+
+local Camera = workspace.CurrentCamera
+local FOVCircle = nil
+local connection = nil
+
+local function CreateFOVCircle()
+    if FOVCircle then FOVCircle:Remove() end
+    
+    FOVCircle = Drawing.new("Circle")
+    FOVCircle.Visible = settings.showFov
+    FOVCircle.Thickness = settings.fovThickness
+    FOVCircle.Color = settings.fovColor
+    FOVCircle.Filled = false
+    FOVCircle.Transparency = 1
+    FOVCircle.NumSides = 60
+    FOVCircle.Radius = settings.fovRadius
+end
+
+local function UpdateFOVCircle()
+    if Camera and Camera.ViewportSize then
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) + settings.fovOffset
+    end
+end
+
+local function IsInFOV(position)
+    if not Camera then return false end
+    local screenPosition, onScreen = Camera:WorldToScreenPoint(position)
+    if not onScreen then return false end
+    
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) + settings.fovOffset
+    return (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude <= settings.fovRadius
+end
+
+local function HasLineOfSight(target)
+    if not settings.wallCheck then return true end
+    local ray = Ray.new(Camera.CFrame.Position, (target.Position - Camera.CFrame.Position).Unit * 1000)
+    local part, position = workspace:FindPartOnRayWithIgnoreList(ray, {game.Players.LocalPlayer.Character})
+    return part == target or (position - target.Position).Magnitude < 5
+end
+
+local function GetClosestPlayerHead()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+    local localPlayer = game.Players.LocalPlayer
+
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") then
+            local head = player.Character.Head
+            local humanoid = player.Character.Humanoid
+            
+            if (not settings.teamCheck or player.Team ~= localPlayer.Team) and
+               IsInFOV(head.Position) and 
+               humanoid.Health > 0 and
+               HasLineOfSight(head) then
+                
+                local distance = (head.Position - Camera.CFrame.Position).Magnitude
+                if distance <= settings.maxDistance and distance < shortestDistance then
+                    closestPlayer = player
+                    shortestDistance = distance
+                end
+            end
+        end
+    end
+
+    return closestPlayer and closestPlayer.Character.Head
+end
+
+local function Aimbot()
+    local targetHead = GetClosestPlayerHead()
+    if targetHead and Camera then
+        local targetPos = targetHead.Position
+        local currentCFrame = Camera.CFrame
+        local targetCFrame = CFrame.new(currentCFrame.Position, targetPos)
+        Camera.CFrame = currentCFrame:Lerp(targetCFrame, settings.smoothness)
+    end
+end
+
+-- UI Controls
+sections.AimSection1:Toggle({
+    Name = "Enable Aimbot",
+    Default = false,
+    Callback = function(value)
+        settings.aimbotEnabled = value
+        
+        if value then
+            CreateFOVCircle()
+            
+            if connection then connection:Disconnect() end
+            connection = game:GetService("RunService").RenderStepped:Connect(function()
+                if settings.aimbotEnabled then
+                    UpdateFOVCircle()
+                    Aimbot()
+                end
+            end)
+        else
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+            if FOVCircle then
+                FOVCircle:Remove()
+                FOVCircle = nil
+            end
+        end
+        
+        Window:Notify({
+            Title = Window.Settings.Title
+        })
+    end,
+}, "Toggle")
+
+
+sections.AimSection1:Toggle({
+    Name = "Team Check",
+    Default = false,
+    Callback = function(value)
+        settings.teamCheck = value
+    end,
+}, "Toggle")
+
+sections.AimSection1:Toggle({
+    Name = "Wall Check",
+    Default = true,
+    Callback = function(value)
+        settings.wallCheck = value
+    end,
+}, "Toggle")
+
+sections.AimSection1:Toggle({
+    Name = "Show FOV",
+    Default = true,
+    Callback = function(value)
+        settings.showFov = value
+        if FOVCircle then
+            FOVCircle.Visible = value
+        end
+    end,
+}, "Toggle")
+
+sections.AimSection1:Slider({
+    Name = "FOV Size",
+    Default = 150,
+    Minimum = 0,
+    Maximum = 500,
+    DisplayMethod = "Value",
+    Precision = 0,
+    Callback = function(Value)
+        settings.fovRadius = Value
+        if FOVCircle then
+            FOVCircle.Radius = Value
+        end
+    end
+}, "Slider")
+
+sections.AimSection1:Slider({
+    Name = "Smoothness",
+    Default = 50,
+    Minimum = 1,
+    Maximum = 100,
+    DisplayMethod = "Value",
+    Precision = 0,
+    Callback = function(Value)
+        settings.smoothness = Value/100
+    end
+}, "Slider")
+
+sections.AimSection1:Input({
+    Name = "Max Distance",
+    Placeholder = "Enter distance (1-5000)",
+    AcceptedCharacters = "Numbers",
+    Callback = function(input)
+        local distance = tonumber(input)
+        if distance and distance >= 1 and distance <= 5000 then
+            settings.maxDistance = distance
+        end
+    end,
+}, "Input")
+
+sections.AimSection1:Colorpicker({
+    Name = "FOV Color",
+    Default = Color3.fromRGB(0, 255, 255),
+    Callback = function(color)
+        settings.fovColor = color
+        if FOVCircle then
+            FOVCircle.Color = color
+        end
+    end,
+}, "Colorpicker")
+
+-- Mobile optimization
+if game:GetService("UserInputService").TouchEnabled then
+    settings.smoothness = 0.3
+    settings.fovRadius = settings.fovRadius * 1.5
+end
+
+-------------------------------------
+sections.ShaSection1:Header({
+	Name = "Lighting"
+})
+
+local lighting = game:GetService("Lighting")
+local defaultBrightness = lighting.Brightness
+local defaultExposure = lighting.ExposureCompensation
+local defaultAmbient = lighting.Ambient
+
+sections.ShaSection1:Slider({
+    Name = "Lighting Brightness",
+    Default = 0,
+    Minimum = 0,
+    Maximum = 100,
+    DisplayMethod = "Value",
+    Precision = 0,
+    Callback = function(Value)
+        if Value == 0 then
+            lighting.Brightness = defaultBrightness
+            lighting.ExposureCompensation = defaultExposure
+            lighting.Ambient = defaultAmbient
+        else
+            lighting.Brightness = Value/25
+            lighting.ExposureCompensation = Value/20
+            lighting.Ambient = Color3.fromRGB(255, 255, 255):Lerp(Color3.fromRGB(255, 255, 255), Value/100)
+        end
+        
+        Window:Notify({
+            Title = Window.Settings.Title
+        })
+    end
+}, "Slider")
+
+local lighting = game:GetService("Lighting")
+local defaultBrightness = lighting.Brightness
+local defaultClockTime = lighting.ClockTime
+local defaultFogEnd = lighting.FogEnd
+local defaultGlobalShadows = lighting.GlobalShadows
+local defaultOutdoorAmbient = lighting.OutdoorAmbient
+
+sections.ShaSection1:Toggle({
+    Name = "Full Bright",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            -- Bật Full Bright
+            lighting.Brightness = 2
+            lighting.ClockTime = 14
+            lighting.FogEnd = 100000
+            lighting.GlobalShadows = false
+            lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+        else
+            -- Tắt Full Bright, quay về giá trị mặc định
+            lighting.Brightness = defaultBrightness
+            lighting.ClockTime = defaultClockTime
+            lighting.FogEnd = defaultFogEnd
+            lighting.GlobalShadows = defaultGlobalShadows
+            lighting.OutdoorAmbient = defaultOutdoorAmbient
+        end
+        
+        Window:Notify({
+            Title = Window.Settings.Title
+        })
+    end
+}, "Toggle")
+------------------------------------------------------
+sections.UniSection1:Header({
+	Name = "Universal"
+})
+-- Phiên bản bypass anti-cheat cơ bản
+local speedEnabled = false
+local speedValue = 50
+
+-- Bypass basic anti-cheat
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+local old = mt.__namecall
+mt.__namecall = newcclosure(function(...)
+    local args = {...}
+    local method = getnamecallmethod()
+    
+    if method == "FireServer" or method == "InvokeServer" then
+        -- Chặn các remote events liên quan đến speed/movement
+        if args[1] == "WalkSpeed" or args[1] == "Speed" or args[1] == "CheckSpeed" then
+            return
+        end
+    end
+    return old(...)
+end)
+setreadonly(mt, true)
+
+-- Sử dụng CFrame movement thay vì WalkSpeed
+local function speedBypass()
+    if speedEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local humanoidRootPart = player.Character.HumanoidRootPart
+        local moveDirection = player.Character.Humanoid.MoveDirection
+        
+        if moveDirection.Magnitude > 0 then
+            humanoidRootPart.CFrame = humanoidRootPart.CFrame + moveDirection * (speedValue/500)
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(speedBypass)
+
+sections.UniSection1:Toggle({
+    Name = "Speed Hack",
+    Default = false,
+    Callback = function(value)
+        speedEnabled = value
+        Window:Notify({
+            Title = "Speed Bypass",
+            Content = value and "Enabled" or "Disabled"
+        })
+    end
+}, "SpeedToggle")
+
+sections.UniSection1:Slider({
+    Name = "Tốc Độ Speed",
+    Default = 50,
+    Minimum = 16,
+    Maximum = 500,
+    DisplayMethod = "Value",
+    Precision = 0,
+    Callback = function(Value)
+        speedValue = Value
+    end
+}, "SpeedSlider")
+-------------------------
+local jumpEnabled = false 
+local jumpValue = 50
+local defaultJump = 50
+local currentMode = "JumpPower"
+
+-- Basic anti-cheat bypass
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+local old = mt.__namecall
+mt.__namecall = newcclosure(function(...)
+    local args = {...}
+    local method = getnamecallmethod()
+    if method == "FireServer" or method == "InvokeServer" then
+        if args[1] == "JumpPower" or args[1] == "JP" or args[1] == "JumpHeight" then
+            return
+        end
+    end
+    return old(...)
+end)
+setreadonly(mt, true)
+
+-- Function để set jump value dựa theo mode
+local function setJumpValue(humanoid, value)
+    if currentMode == "JumpPower" then
+        humanoid.JumpPower = value
+        humanoid.UseJumpPower = true
+    else
+        humanoid.JumpHeight = value/2.5
+    end
+end
+
+sections.UniSection1:Dropdown({
+    Name = "Mode Nhảy",
+    Multi = false,
+    Required = true,
+    Options = {"JumpPower", "JumpHeight"},
+    Default = 1,
+    Callback = function(Value)
+        currentMode = Value
+        if jumpEnabled and player.Character and player.Character:FindFirstChild("Humanoid") then
+            setJumpValue(player.Character.Humanoid, jumpValue)
+        end
+        Window:Notify({
+            Title = "Jump Mode",
+            Content = "Changed to " .. Value
+        })
+    end
+}, "JumpModeDropdown")
+
+sections.UniSection1:Toggle({
+    Name = "Nhảy Cao",
+    Default = false,
+    Callback = function(value)
+        jumpEnabled = value
+        if value then
+            if player.Character and player.Character:FindFirstChild("Humanoid") then
+                setJumpValue(player.Character.Humanoid, jumpValue)
+            end
+            Window:Notify({
+                Title = "Jump Changer",
+                Content = "Enabled"
+            })
+        else
+            if player.Character and player.Character:FindFirstChild("Humanoid") then
+                setJumpValue(player.Character.Humanoid, defaultJump)
+            end
+            Window:Notify({
+                Title = "Jump Changer",
+                Content = "Disabled"
+            })
+        end
+    end
+}, "JumpToggle")
+
+sections.UniSection1:Slider({
+    Name = "Sức Nhảy",
+    Default = 50,
+    Minimum = 50,
+    Maximum = 5000, -- Tăng maximum lên 5000
+    DisplayMethod = "Value",
+    Precision = 0,
+    Callback = function(Value)
+        jumpValue = Value
+        if jumpEnabled then
+            if player.Character and player.Character:FindFirstChild("Humanoid") then
+                setJumpValue(player.Character.Humanoid, Value)
+            end
+        end
+    end
+}, "JumpSlider")
+
+-- Handle character respawn
+player.CharacterAdded:Connect(function(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    if jumpEnabled then
+        setJumpValue(humanoid, jumpValue)
+    end
+end)
+
+------------------------------------------------------------------------------------------------------------
+
+-- Hàm lưu vị trí
+local function savePosition(position)
+    local data = {
+        X = position.X.Scale,
+        XOffset = position.X.Offset,
+        Y = position.Y.Scale,
+        YOffset = position.Y.Offset
+    }
+    writefile("ui_position.json", HttpService:JSONEncode(data))
+end
+
+-- Hàm đọc vị trí đã lưu
+local function loadPosition()
+    if isfile("ui_position.json") then
+        local data = HttpService:JSONDecode(readfile("ui_position.json"))
+        return UDim2.new(data.X, data.XOffset, data.Y, data.YOffset)
+    end
+    return UDim2.new(0.1, 0, 0.7, 0)
+end
+
+-- Xóa UI cũ nếu tồn tại
+local function clearUI()
+    local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+    local oldUI = playerGui:FindFirstChild("MainUI")
+    if oldUI then
+        oldUI:Destroy()
+    end
+end
+
+clearUI()
+
+-- Tạo giao diện chính
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MainUI"
+ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Tạo nút chính
+local MainButton = Instance.new("ImageButton")
+MainButton.Name = "MainButton"
+MainButton.Size = UDim2.new(0, 50, 0, 50)
+MainButton.Position = loadPosition() -- Đọc vị trí đã lưu
+MainButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainButton.Image = "rbxassetid://128828160886762"
+MainButton.BackgroundTransparency = 0
+MainButton.Parent = ScreenGui
+
+-- Bo tròn góc
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0.2, 0)
+UICorner.Parent = MainButton
+
+-- Thêm viền
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(255, 255, 255)
+UIStroke.Thickness = 1.5
+UIStroke.Transparency = 0.8
+UIStroke.Parent = MainButton
+
+local Enabled = false
+
+-- Hiệu ứng nhấn nút
+local function buttonEffect()
+    local pressInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad)
+    local pressAnim = TweenService:Create(MainButton, pressInfo, {
+        Size = UDim2.new(0, 45, 0, 45)
+    })
+    local releaseAnim = TweenService:Create(MainButton, pressInfo, {
+        Size = UDim2.new(0, 50, 0, 50)
+    })
+    
+    pressAnim:Play()
+    wait(0.1)
+    releaseAnim:Play()
+end
+
+-- Kích hoạt RightControl
+local function activateRightControl()
+    local vim = game:GetService("VirtualInputManager")
+    vim:SendKeyEvent(true, Enum.KeyCode.RightControl, false, game)
+    wait()
+    vim:SendKeyEvent(false, Enum.KeyCode.RightControl, false, game)
+end
+
+-- Hiệu ứng chuyển đổi
+local function updateToggle()
+    if Enabled then
+        TweenService:Create(MainButton, TweenInfo.new(0.3), {
+            BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+        }):Play()
+    else
+        TweenService:Create(MainButton, TweenInfo.new(0.3), {
+            BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        }):Play()
+    end
+end
+
+MainButton.MouseButton1Click:Connect(function()
+    buttonEffect()
+    Enabled = not Enabled
+    updateToggle()
+    activateRightControl()
+end)
+
+-- Kéo thả UI với lưu vị trí
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    local newPosition = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
+    MainButton.Position = newPosition
+    savePosition(newPosition) -- Lưu vị trí mới
+end
+
+MainButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainButton.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MainButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+----------------------------------------------------------
+
+
+
+------------- thông------------
+sections.MainSection1:Divider()
+
+sections.MainSection1:Header({
+	Text = "Tiêu đề #2"
+})
+
+sections.MainSection1:Paragraph({
+	Header = "Thông tin",
+	Body = "Đang bản demo đang tốt ưu"
+})
+
+sections.MainSection1:Label({
+	Text = "V0.1.1."
+})
+
+sections.MainSection1:SubLabel({
+	Text = "Ui Mac share và được thêm những chức năng tự code độc quyền."
+})
+
+MacLib:SetFolder("Maclib")
+tabs.Settings:InsertConfigSection("Left")
+
+Window.onUnloaded(function()
+	print("Unloaded!")
+end)
+
+tabs.Main:Select()
+MacLib:LoadAutoLoadConfig()
