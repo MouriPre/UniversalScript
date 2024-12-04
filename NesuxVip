@@ -1198,9 +1198,8 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 -----------------------------------
 sections.AimSection1:Header({
-	Name = "Aimbot Player"
+    Name = "Aimbot Player"
 })
-
 
 local settings = {
     aimbotEnabled = false,
@@ -1209,20 +1208,31 @@ local settings = {
     fovRadius = 150,
     fovColor = Color3.fromRGB(0, 255, 255),
     fovThickness = 1,
-    maxDistance = 1000,
+    maxDistance = 50, -- Mặc định 50m
     smoothness = 0.5,
     showFov = true,
     fovOffset = Vector2.new(0, 0)
 }
 
 local Camera = workspace.CurrentCamera
-local FOVCircle = nil
+local FOVCircle = Drawing.new("Circle")
 local connection = nil
 
-local function CreateFOVCircle()
-    if FOVCircle then FOVCircle:Remove() end
-    
-    FOVCircle = Drawing.new("Circle")
+-- Tạo bảng options cho dropdown khoảng cách
+local distanceOptions = {
+    {Name = "50m", Value = 50},
+    {Name = "100m", Value = 100},
+    {Name = "200m", Value = 200},
+    {Name = "500m", Value = 500},
+    {Name = "1000m", Value = 1000}
+}
+
+local optionNames = {}
+for _, option in ipairs(distanceOptions) do
+    table.insert(optionNames, option.Name)
+end
+
+local function InitializeFOVCircle()
     FOVCircle.Visible = settings.showFov
     FOVCircle.Thickness = settings.fovThickness
     FOVCircle.Color = settings.fovColor
@@ -1230,6 +1240,7 @@ local function CreateFOVCircle()
     FOVCircle.Transparency = 1
     FOVCircle.NumSides = 60
     FOVCircle.Radius = settings.fovRadius
+    UpdateFOVCircle()
 end
 
 local function UpdateFOVCircle()
@@ -1237,6 +1248,12 @@ local function UpdateFOVCircle()
         FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) + settings.fovOffset
     end
 end
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if settings.showFov then
+        UpdateFOVCircle()
+    end
+end)
 
 local function IsInFOV(position)
     if not Camera then return false end
@@ -1249,7 +1266,7 @@ end
 
 local function HasLineOfSight(target)
     if not settings.wallCheck then return true end
-    local ray = Ray.new(Camera.CFrame.Position, (target.Position - Camera.CFrame.Position).Unit * 1000)
+    local ray = Ray.new(Camera.CFrame.Position, (target.Position - Camera.CFrame.Position).Unit * settings.maxDistance)
     local part, position = workspace:FindPartOnRayWithIgnoreList(ray, {game.Players.LocalPlayer.Character})
     return part == target or (position - target.Position).Magnitude < 5
 end
@@ -1299,12 +1316,11 @@ sections.AimSection1:Toggle({
         settings.aimbotEnabled = value
         
         if value then
-            CreateFOVCircle()
+            FOVCircle.Visible = settings.showFov
             
             if connection then connection:Disconnect() end
             connection = game:GetService("RunService").RenderStepped:Connect(function()
                 if settings.aimbotEnabled then
-                    UpdateFOVCircle()
                     Aimbot()
                 end
             end)
@@ -1313,18 +1329,16 @@ sections.AimSection1:Toggle({
                 connection:Disconnect()
                 connection = nil
             end
-            if FOVCircle then
-                FOVCircle:Remove()
-                FOVCircle = nil
-            end
+            FOVCircle.Visible = false
         end
         
         Window:Notify({
-            Title = Window.Settings.Title
+            Title = "Thông báo",
+            Content = value and "Đã bật Aimbot" or "Đã tắt Aimbot",
+            Time = 2
         })
     end,
 }, "Toggle")
-
 
 sections.AimSection1:Toggle({
     Name = "Team Check",
@@ -1347,11 +1361,31 @@ sections.AimSection1:Toggle({
     Default = true,
     Callback = function(value)
         settings.showFov = value
-        if FOVCircle then
-            FOVCircle.Visible = value
-        end
+        FOVCircle.Visible = value and settings.aimbotEnabled
     end,
 }, "Toggle")
+
+-- Thêm dropdown khoảng cách
+local AimDistanceDropdown = sections.AimSection1:Dropdown({
+    Name = "Khoảng Cách Aim",
+    Multi = false,
+    Required = true,
+    Options = optionNames,
+    Default = 1,
+    Callback = function(selectedOption)
+        for _, option in ipairs(distanceOptions) do
+            if option.Name == selectedOption then
+                settings.maxDistance = option.Value
+                Window:Notify({
+                    Title = "Thông báo",
+                    Content = "Đã đặt khoảng cách aim thành " .. option.Name,
+                    Time = 2
+                })
+                break
+            end
+        end
+    end,
+}, "Dropdown")
 
 sections.AimSection1:Slider({
     Name = "Kích Thước Vòng",
@@ -1380,20 +1414,8 @@ sections.AimSection1:Slider({
     end
 }, "Slider")
 
-sections.AimSection1:Input({
-    Name = "Khoảng Cách Aim",
-    Placeholder = "Enter distance (1-5000)",
-    AcceptedCharacters = "Numbers",
-    Callback = function(input)
-        local distance = tonumber(input)
-        if distance and distance >= 1 and distance <= 5000 then
-            settings.maxDistance = distance
-        end
-    end,
-}, "Input")
-
 sections.AimSection1:Colorpicker({
-    Name = "FOV Color",
+    Name = "Màu Vòng Aim",
     Default = Color3.fromRGB(0, 255, 255),
     Callback = function(color)
         settings.fovColor = color
@@ -1409,6 +1431,8 @@ if game:GetService("UserInputService").TouchEnabled then
     settings.fovRadius = settings.fovRadius * 1.5
 end
 
+-- Khởi tạo FOV Circle
+InitializeFOVCircle()
 -------------------------------------
 sections.ShaSection1:Header({
 	Name = "Lighting"
