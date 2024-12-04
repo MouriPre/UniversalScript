@@ -1214,7 +1214,9 @@ local FOVHidden = false
 local FOVSize = 200
 local AimbotTarget = "Head"
 local AimbotRange = 50
-local FOVColor = Color3.fromRGB(255, 255, 255) -- Màu mặc định
+local FOVColor = Color3.fromRGB(255, 255, 255)
+local TeamCheck = false
+local WallCheck = false
 
 -- Tạo FOV Circle
 local fovCircle = Instance.new("Frame")
@@ -1240,19 +1242,37 @@ gui.Name = "AimbotGUI"
 gui.Parent = game.CoreGui
 fovCircle.Parent = gui
 
--- Hàm cập nhật màu FOV
+-- Hàm kiểm tra team
+local function IsTeammate(player)
+    if not TeamCheck then return false end
+    return player.Team == LocalPlayer.Team
+end
+
+-- Hàm kiểm tra tầm nhìn
+local function IsVisible(targetPart)
+    if not WallCheck then return true end
+    
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin).Unit
+    local raycastResult = workspace:Raycast(origin, direction * 1000, {
+        LocalPlayer.Character,
+        targetPart.Parent
+    })
+    
+    if not raycastResult then return true end
+    return raycastResult.Instance:IsDescendantOf(targetPart.Parent)
+end
+
 local function UpdateFOVColor(color)
     FOVColor = color
     uiStroke.Color = color
 end
 
--- Hàm cập nhật kích thước FOV
 local function UpdateFOVSize(size)
     FOVSize = size
     fovCircle.Size = UDim2.new(0, size * 2, 0, size * 2)
 end
 
--- Hàm kiểm tra mục tiêu trong FOV
 local function IsInFOV(position)
     local screenPos, onScreen = Camera:WorldToScreenPoint(position)
     if not onScreen then return false end
@@ -1262,7 +1282,6 @@ local function IsInFOV(position)
     return (screenCenter - screenPosition).Magnitude <= FOVSize
 end
 
--- Hàm lấy người chơi gần nhất trong FOV và trong phạm vi
 local function GetClosestPlayerInFOV()
     local closestPlayer = nil
     local shortestDistance = math.huge
@@ -1272,18 +1291,23 @@ local function GetClosestPlayerInFOV()
            player.Character and 
            player.Character:FindFirstChild("HumanoidRootPart") and 
            player.Character:FindFirstChild("Humanoid") and 
-           player.Character.Humanoid.Health > 0 then
+           player.Character.Humanoid.Health > 0 and
+           not IsTeammate(player) then
             
             local root = player.Character.HumanoidRootPart
-            local distance = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
+            local targetPart = player.Character:FindFirstChild(AimbotTarget)
             
-            if distance <= AimbotRange then
-                local screenPos, onScreen = Camera:WorldToScreenPoint(root.Position)
+            if targetPart then
+                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
                 
-                if onScreen and IsInFOV(root.Position) then
-                    if distance < shortestDistance then
-                        closestPlayer = player
-                        shortestDistance = distance
+                if distance <= AimbotRange then
+                    local screenPos, onScreen = Camera:WorldToScreenPoint(root.Position)
+                    
+                    if onScreen and IsInFOV(root.Position) and IsVisible(targetPart) then
+                        if distance < shortestDistance then
+                            closestPlayer = player
+                            shortestDistance = distance
+                        end
                     end
                 end
             end
@@ -1293,7 +1317,6 @@ local function GetClosestPlayerInFOV()
     return closestPlayer
 end
 
--- Hàm cập nhật hiển thị FOV
 local function UpdateFOVVisibility()
     fovCircle.Visible = AimbotEnabled and not FOVHidden
 end
@@ -1313,33 +1336,56 @@ end)
 
 -- Toggle Aimbot
 sections.AimSection1:Toggle({
-    Name = "Bật Aim",
+    Name = "Bật/Tắt Aimbot",
     Default = false,
     Callback = function(value)
         AimbotEnabled = value
         UpdateFOVVisibility()
         Window:Notify({
-            Title = "Aimbot " .. (value and "Enabled" or "Disabled")
+            Title = "Aimbot đã được " .. (value and "Bật" or "Tắt")
         })
     end
 }, "AimbotToggle")
 
 -- Toggle FOV
 sections.AimSection1:Toggle({
-    Name = "Ẩn Vòng Fov",
+    Name = "Ẩn Vòng Tròn",
     Default = false,
     Callback = function(value)
         FOVHidden = value
         UpdateFOVVisibility()
         Window:Notify({
-            Title = "FOV " .. (value and "Hidden" or "Visible")
+            Title = "Vòng tròn đã được " .. (value and "Ẩn" or "Hiện")
         })
     end
 }, "FOVToggle")
 
+-- Toggle TeamCheck
+sections.AimSection1:Toggle({
+    Name = "Kiểm Tra Đồng Đội",
+    Default = false,
+    Callback = function(value)
+        TeamCheck = value
+        Window:Notify({
+            Title = "Kiểm tra đồng đội đã được " .. (value and "Bật" or "Tắt")
+        })
+    end
+}, "TeamCheckToggle")
+
+sections.AimSection1:Toggle({
+    Name = "Kiểm Tra Vật Cản",
+    Default = false,
+    Callback = function(value)
+        WallCheck = value
+        Window:Notify({
+            Title = "Wall Check đã được " .. (value and "Bật" or "Tắt")
+        })
+    end
+}, "WallCheckToggle")
+
 -- Slider FOV Size
 sections.AimSection1:Slider({
-    Name = "Kích Thước Fov",
+    Name = "Kích Thước Vòng Tròn",
     Default = 200,
     Minimum = 50,
     Maximum = 500,
@@ -1348,62 +1394,62 @@ sections.AimSection1:Slider({
     Callback = function(Value)
         UpdateFOVSize(Value)
         Window:Notify({
-            Title = "FOV Size: " .. Value
+            Title = "Kích thước vòng tròn: " .. Value
         })
     end
 }, "FOVSizeSlider")
 
 -- Dropdown Aimbot Target
 sections.AimSection1:Dropdown({
-    Name = "Vị Trí Aim",
+    Name = "Vị Trí Nhắm",
     Multi = false,
     Required = true,
-    Options = {"Head", "HumanoidRootPart"},
+    Options = {"Đầu", "Thân"},
     Default = 1,
     Callback = function(Value)
-        AimbotTarget = Value
+        AimbotTarget = Value == "Đầu" and "Head" or "HumanoidRootPart"
         Window:Notify({
-            Title = "Aimbot Target: " .. Value
+            Title = "Đã chọn nhắm vào: " .. Value
         })
     end
 }, "AimbotTargetDropdown")
 
 -- Dropdown Aimbot Range
 sections.AimSection1:Dropdown({
-    Name = "Khoảng Cách Aim",
+    Name = "Tầm Xa Aimbot",
     Multi = false,
     Required = true,
     Options = {
-        "Mức 1 (50m)",
-        "MứV 2 (100m)",
-        "Mức3 3 (150m)",
-        "Mức 4 (300m)",
-        "Mức 5 (1000m)"
+        "Cấp 1 (50m)",
+        "Cấp 2 (100m)",
+        "Cấp 3 (150m)",
+        "Cấp 4 (300m)",
+        "Cấp 5 (1000m)"
     },
     Default = 1,
     Callback = function(Value)
         local ranges = {
-            ["Mức 1 (50m)"] = 50,
-            ["Mức 2 (100m)"] = 100,
-            ["Mức 3 (150m)"] = 150,
-            ["Mức 4 (300m)"] = 300,
-            ["Mức 5 (1000m)"] = 1000
+            ["Cấp 1 (50m)"] = 50,
+            ["Cấp 2 (100m)"] = 100,
+            ["Cấp 3 (150m)"] = 150,
+            ["Cấp 4 (300m)"] = 300,
+            ["Cấp 5 (1000m)"] = 1000
         }
         AimbotRange = ranges[Value]
         Window:Notify({
-            Title = "Aimbot Range: " .. Value
+            Title = "Tầm xa aimbot: " .. Value
         })
     end
 }, "AimbotRangeDropdown")
 
 -- Colorpicker FOV Color
 sections.AimSection1:Colorpicker({
-    Name = "Màu Vòng Fov",
+    Name = "Màu Vòng Tròn",
     Default = Color3.fromRGB(255, 255, 255),
     Callback = function(color)
         UpdateFOVColor(color)
         Window:Notify({
-            Title = "FOV Color Updated"
+            Title = "Đã cập nhật màu vòng tròn"
         })
     end,
 }, "FOVColorpicker")
