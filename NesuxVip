@@ -1204,11 +1204,9 @@ sections.AimSection1:Header({
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-
-local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
 
--- Cài đặt
 local AimbotEnabled = false
 local FOVHidden = false
 local FOVSize = 200
@@ -1219,28 +1217,15 @@ local TeamCheck = false
 local WallCheck = false
 
 -- Tạo FOV Circle
-local fovCircle = Instance.new("Frame")
-fovCircle.Name = "FOVCircle"
-fovCircle.Size = UDim2.new(0, FOVSize * 2, 0, FOVSize * 2)
-fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
-fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
-fovCircle.BackgroundTransparency = 1
-fovCircle.BorderSizePixel = 0
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness = 1
+fovCircle.NumSides = 100
+fovCircle.Radius = FOVSize
+fovCircle.Filled = false
 fovCircle.Visible = false
-
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(1, 0)
-uiCorner.Parent = fovCircle
-
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Color = FOVColor
-uiStroke.Thickness = 1
-uiStroke.Parent = fovCircle
-
-local gui = Instance.new("ScreenGui")
-gui.Name = "AimbotGUI"
-gui.Parent = game.CoreGui
-fovCircle.Parent = gui
+fovCircle.ZIndex = 999
+fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+fovCircle.Color = FOVColor
 
 -- Hàm kiểm tra team
 local function IsTeammate(player)
@@ -1253,24 +1238,17 @@ local function IsVisible(targetPart)
     if not WallCheck then return true end
     
     local origin = Camera.CFrame.Position
-    local direction = (targetPart.Position - origin).Unit
-    local raycastResult = workspace:Raycast(origin, direction * 1000, {
-        LocalPlayer.Character,
-        targetPart.Parent
-    })
+    local targetPos = targetPart.Position
+    local direction = (targetPos - origin)
+    local distance = direction.Magnitude
+    direction = direction.Unit
     
-    if not raycastResult then return true end
-    return raycastResult.Instance:IsDescendantOf(targetPart.Parent)
-end
-
-local function UpdateFOVColor(color)
-    FOVColor = color
-    uiStroke.Color = color
-end
-
-local function UpdateFOVSize(size)
-    FOVSize = size
-    fovCircle.Size = UDim2.new(0, size * 2, 0, size * 2)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+    rayParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
+    
+    local result = workspace:Raycast(origin, direction * distance, rayParams)
+    return result == nil
 end
 
 local function IsInFOV(position)
@@ -1294,20 +1272,14 @@ local function GetClosestPlayerInFOV()
            player.Character.Humanoid.Health > 0 and
            not IsTeammate(player) then
             
-            local root = player.Character.HumanoidRootPart
             local targetPart = player.Character:FindFirstChild(AimbotTarget)
-            
             if targetPart then
-                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - targetPart.Position).Magnitude
                 
-                if distance <= AimbotRange then
-                    local screenPos, onScreen = Camera:WorldToScreenPoint(root.Position)
-                    
-                    if onScreen and IsInFOV(root.Position) and IsVisible(targetPart) then
-                        if distance < shortestDistance then
-                            closestPlayer = player
-                            shortestDistance = distance
-                        end
+                if distance <= AimbotRange and IsVisible(targetPart) and IsInFOV(targetPart.Position) then
+                    if distance < shortestDistance then
+                        closestPlayer = player
+                        shortestDistance = distance
                     end
                 end
             end
@@ -1317,12 +1289,30 @@ local function GetClosestPlayerInFOV()
     return closestPlayer
 end
 
+-- Hàm cập nhật
 local function UpdateFOVVisibility()
     fovCircle.Visible = AimbotEnabled and not FOVHidden
 end
 
+local function UpdateFOVPosition()
+    fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+end
+
+local function UpdateFOVColor(color)
+    FOVColor = color
+    fovCircle.Color = color
+end
+
+local function UpdateFOVSize(size)
+    FOVSize = size
+    fovCircle.Radius = size
+end
+
 -- Mobile Aimbot Loop
 RunService:BindToRenderStep("MobileAimbot", 1, function()
+    UpdateFOVPosition()
+    UpdateFOVVisibility()
+    
     if not AimbotEnabled then return end
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
     
@@ -1333,6 +1323,29 @@ RunService:BindToRenderStep("MobileAimbot", 1, function()
         Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 0.5)
     end
 end)
+
+-- Events for character
+LocalPlayer.CharacterAdded:Connect(function()
+    UpdateFOVVisibility()
+end)
+
+LocalPlayer.CharacterRemoving:Connect(function()
+    UpdateFOVVisibility()
+end)
+
+-- Viewport size changed
+Camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateFOVPosition)
+
+-- Toggle functions
+local function ToggleAimbot()
+    AimbotEnabled = not AimbotEnabled
+    UpdateFOVVisibility()
+end
+
+local function ToggleFOV()
+    FOVHidden = not FOVHidden
+    UpdateFOVVisibility()
+end
 
 -- Toggle Aimbot
 sections.AimSection1:Toggle({
@@ -1385,7 +1398,7 @@ sections.AimSection1:Toggle({
 
 -- Slider FOV Size
 sections.AimSection1:Slider({
-    Name = "Kích Thước Vòng Tròn",
+    Name = "Size Fov",
     Default = 200,
     Minimum = 50,
     Maximum = 500,
@@ -1441,6 +1454,21 @@ sections.AimSection1:Dropdown({
         })
     end
 }, "AimbotRangeDropdown")
+
+-- Thêm vào phần sections.AimSection1
+sections.AimSection1:Slider({
+    Name = "Khoảng Cách Aim",
+    Default = 50,
+    Minimum = 0,
+    Maximum = 5000,
+    DisplayMethod = "Value",
+    Precision = 0,
+    Callback = function(Value)
+        AimbotRange = Value -- Cập nhật giá trị AimbotRange
+        print("Aimbot Range set to: " .. Value .. "m")
+    end
+})
+
 
 -- Colorpicker FOV Color
 sections.AimSection1:Colorpicker({
@@ -1558,7 +1586,8 @@ local function speedBypass()
         local moveDirection = player.Character.Humanoid.MoveDirection
         
         if moveDirection.Magnitude > 0 then
-            humanoidRootPart.CFrame = humanoidRootPart.CFrame + moveDirection * (speedValue/500)
+            -- Tăng hệ số chia để giảm độ nhạy của tốc độ cao
+            humanoidRootPart.CFrame = humanoidRootPart.CFrame + moveDirection * (speedValue/1000)
         end
     end
 end
@@ -1581,13 +1610,14 @@ sections.UniSection1:Slider({
     Name = "Tốc Độ Speed",
     Default = 50,
     Minimum = 16,
-    Maximum = 500,
+    Maximum = 5000, -- Đã tăng maximum lên 5000
     DisplayMethod = "Value",
     Precision = 0,
     Callback = function(Value)
         speedValue = Value
     end
 }, "SpeedSlider")
+
 -------------------------
 local jumpEnabled = false 
 local jumpValue = 50
