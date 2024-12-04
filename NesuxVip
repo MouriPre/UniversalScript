@@ -58,17 +58,21 @@ local tabs = {
 	Main = tabGroups.TabGroup1:Tab({ Name = "Thông báo Update", Image = "rbxassetid://81478297548754" }),
 	Esp = tabGroups.TabGroup1:Tab({ Name = "Định vị", Image = "rbxassetid://84727577248856" }),
 	Aim = tabGroups.TabGroup1:Tab({ Name = "Aimbot", Image = "rbxassetid://130939958971532" }),
-	Uni = tabGroups.TabGroup1:Tab({ Name = "Universal", Image = "rbxassetid://122760395538267" }),
+	Uni = tabGroups.TabGroup1:Tab({ Name = "Visual", Image = "rbxassetid://122760395538267" }),
+	Pla = tabGroups.TabGroup1:Tab({ Name = "Mục Nhân Vật", Image = "rbxassetid://122760395538267" }),
 	Sha = tabGroups.TabGroup1:Tab({ Name = "Đồ họa", Image = "rbxassetid://87916652848972" }),
 	Settings = tabGroups.TabGroup1:Tab({ Name = "Cài đặt", Image = "rbxassetid://75791170485208" })
 }
 
 local sections = {
 	MainSection1 = tabs.Main:Section({ Side = "Left" }),
+	Main2Section1 = tabs.Main:Section({ Side = "Right" }),
 	EspSection1 = tabs.Esp:Section({ Side = "Left" }),
 	Esp2Section1 = tabs.Esp:Section({ Side = "Right" }),
 	AimSection1 = tabs.Aim:Section({ Side = "Left" }),
 	UniSection1 = tabs.Uni:Section({ Side = "Left" }),
+	Uni2Section1 = tabs.Uni:Section({ Side = "Right" }),
+	PlaSection1 = tabs.Pla:Section({ Side = "Left" }),
 	ShaSection1 = tabs.Sha:Section({ Side = "Left" }),
 }
 
@@ -80,6 +84,7 @@ local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 local player = Players.LocalPlayer
+local VirtualUser = game:GetService("VirtualUser")
 ------------------------------------------------------------------------------------------------------------
 sections.EspSection1:Header({
 	Name = "ESP Tên Người Chơi"
@@ -1632,6 +1637,924 @@ player.CharacterAdded:Connect(function(character)
         setJumpValue(humanoid, jumpValue)
     end
 end)
+-----------------------------
+sections.Uni2Section1:Paragraph({
+	Header = "Ấn Giữ Nút Nhảy Hoặc Bấm Liên Tục Nút Nhảy",
+	Body = "Có Thể Dùng Kết Hợp Nhảy Cao"
+})
+
+local infiniteJumpEnabled = false
+
+-- Basic anti-cheat bypass
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+local old = mt.__namecall
+mt.__namecall = newcclosure(function(...)
+    local args = {...}
+    local method = getnamecallmethod()
+    if method == "FireServer" or method == "InvokeServer" then
+        if args[1] == "JumpRequest" or args[1] == "Jump" then
+            return
+        end
+    end
+    return old(...)
+end)
+setreadonly(mt, true)
+
+-- Infinite Jump Logic
+UserInputService.JumpRequest:Connect(function()
+    if infiniteJumpEnabled then
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+sections.Uni2Section1:Toggle({
+    Name = "Nhảy Liên Tục",
+    Default = false,
+    Callback = function(value)
+        infiniteJumpEnabled = value
+        Window:Notify({
+            Title = "Infinite Jump",
+            Content = value and "Enabled" or "Disabled"
+        })
+    end
+}, "InfiniteJumpToggle")
+-------------------------------------
+local noclipEnabled = false
+
+-- Basic anti-cheat bypass
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+local old = mt.__namecall
+mt.__namecall = newcclosure(function(...)
+    local args = {...}
+    local method = getnamecallmethod()
+    if method == "FireServer" or method == "InvokeServer" then
+        if args[1] == "Noclip" or args[1] == "Phase" then
+            return
+        end
+    end
+    return old(...)
+end)
+setreadonly(mt, true)
+
+-- Noclip Function
+local function noclipRun()
+    if noclipEnabled then
+        if player.Character then
+            for _, part in pairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end
+
+-- Connect noclip to RunService
+RunService.Stepped:Connect(noclipRun)
+
+-- Noclip Toggle
+sections.Uni2Section1:Toggle({
+    Name = "Xuyên Tường",
+    Default = false,
+    Callback = function(value)
+        noclipEnabled = value
+        
+        if value then
+            -- Khi bật Noclip
+            if player.Character then
+                for _, part in pairs(player.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        else
+            -- Khi tắt Noclip
+            if player.Character then
+                for _, part in pairs(player.Character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        part.CanCollide = true
+                    end
+                end
+            end
+        end
+
+        Window:Notify({
+            Title = "Noclip",
+            Content = value and "Enabled" or "Disabled"
+        })
+    end
+}, "NoclipToggle")
+
+-- Handle character respawn
+player.CharacterAdded:Connect(function(character)
+    if noclipEnabled then
+        wait(0.5) -- Đợi character load
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+-------------------------------
+local floatEnabled = false
+local floatHeight = 100 -- Độ cao mặc định khi bật Float
+
+-- Basic anti-cheat bypass
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+local old = mt.__namecall
+mt.__namecall = newcclosure(function(...)
+    local args = {...}
+    local method = getnamecallmethod()
+    if method == "FireServer" or method == "InvokeServer" then
+        if args[1] == "Float" or args[1] == "Hover" then
+            return
+        end
+    end
+    return old(...)
+end)
+setreadonly(mt, true)
+
+-- Float function
+local function updateFloat()
+    if floatEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local humanoidRootPart = player.Character.HumanoidRootPart
+        local currentX = humanoidRootPart.Position.X
+        local currentZ = humanoidRootPart.Position.Z
+        
+        humanoidRootPart.Velocity = Vector3.new(humanoidRootPart.Velocity.X, 0, humanoidRootPart.Velocity.Z)
+        humanoidRootPart.CFrame = CFrame.new(currentX, floatHeight, currentZ)
+    end
+end
+
+RunService.Heartbeat:Connect(updateFloat)
+
+-- Float Toggle
+sections.UniSection1:Toggle({
+    Name = "Lơ Lưng Trên Không",
+    Default = false,
+    Callback = function(value)
+        floatEnabled = value
+        if value then
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local humanoidRootPart = player.Character.HumanoidRootPart
+                local currentX = humanoidRootPart.Position.X
+                local currentZ = humanoidRootPart.Position.Z
+                humanoidRootPart.CFrame = CFrame.new(currentX, floatHeight, currentZ)
+            end
+        end
+        Window:Notify({
+            Title = "Float",
+            Content = value and "Enabled" or "Disabled"
+        })
+    end
+}, "FloatToggle")
+
+-- Slider mới
+sections.UniSection1:Slider({
+    Name = "Độ Cao",
+    Default = 100,
+    Minimum = 50,
+    Maximum = 500,
+    DisplayMethod = "Percent",
+    Precision = 0,
+    Callback = function(Value)
+        floatHeight = Value
+        if floatEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoidRootPart = player.Character.HumanoidRootPart
+            local currentX = humanoidRootPart.Position.X
+            local currentZ = humanoidRootPart.Position.Z
+            humanoidRootPart.CFrame = CFrame.new(currentX, floatHeight, currentZ)
+        end
+    end
+})
+
+-- Handle character respawn
+player.CharacterAdded:Connect(function(character)
+    if floatEnabled then
+        wait(0.5)
+        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+        local currentX = humanoidRootPart.Position.X
+        local currentZ = humanoidRootPart.Position.Z
+        humanoidRootPart.CFrame = CFrame.new(currentX, floatHeight, currentZ)
+    end
+end)
+
+--------------------
+local gravityEnabled = false
+local gravityValue = 196.2
+
+-- Basic anti-cheat bypass
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+local old = mt.__namecall
+mt.__namecall = newcclosure(function(...)
+    local args = {...}
+    local method = getnamecallmethod()
+    if method == "FireServer" or method == "InvokeServer" then
+        if args[1] == "Gravity" or args[1] == "GravityChange" then
+            return
+        end
+    end
+    return old(...)
+end)
+setreadonly(mt, true)
+
+-- Gravity function
+local function updateGravity()
+    if gravityEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local humanoid = player.Character:FindFirstChild("Humanoid")
+        local hrp = player.Character.HumanoidRootPart
+        
+        if humanoid and hrp then
+            -- Chỉ áp dụng gravity khi rơi (velocity.Y < 0)
+            local currentVelocity = hrp.Velocity
+            if currentVelocity.Y < 0 and humanoid.FloorMaterial == Enum.Material.Air then
+                -- Điều chỉnh tốc độ rơi
+                local fallSpeed = (currentVelocity.Y * gravityValue) / 196.2
+                hrp.Velocity = Vector3.new(
+                    currentVelocity.X,
+                    fallSpeed,
+                    currentVelocity.Z
+                )
+            end
+        end
+    end
+end
+
+-- Kết nối với RunService
+RunService.Heartbeat:Connect(updateGravity)
+
+-- Gravity Toggle
+sections.Uni2Section1:Toggle({
+    Name = "Trọng Lực",
+    Default = false,
+    Callback = function(value)
+        gravityEnabled = value
+        Window:Notify({
+            Title = "Trọng Lực",
+            Content = value and "Đã Bật" or "Đã Tắt"
+        })
+    end
+}, "GravityToggle")
+
+-- Gravity Slider
+sections.Uni2Section1:Slider({
+    Name = "Điều Chỉnh Trọng Lực",
+    Default = 50,
+    Minimum = 0,
+    Maximum = 100,
+    DisplayMethod = "Percent",
+    Precision = 0,
+    Callback = function(Value)
+        -- Chuyển đổi giá trị phần trăm thành giá trị gravity thực tế
+        gravityValue = math.floor((100 - Value) * 1.962)
+        print("Đã thay đổi trọng lực thành: " .. gravityValue)
+    end
+}, "GravitySlider")
+
+-- Preset Gravity
+sections.Uni2Section1:Dropdown({
+    Name = "Mức Trọng Lực",
+    Default = 1,
+    Options = {
+        "Rơi Chậm (25)",
+        "Rơi Vừa (100)",
+        "Rơi Nhanh (196)",
+    },
+    Callback = function(Value)
+        local gravityMap = {
+            ["Rơi Chậm (25)"] = 25,
+            ["Rơi Vừa (100)"] = 100,
+            ["Rơi Nhanh (196)"] = 196,
+        }
+        gravityValue = gravityMap[Value]
+    end
+}, "GravityPreset")
+
+-- Handle character respawn
+player.CharacterAdded:Connect(function()
+    if gravityEnabled then
+        wait(0.5) -- Đợi character load
+    end
+end)
+-------------------------
+local antiAFKEnabled = false
+
+-- Toggle UI với tên tiếng Việt
+sections.Uni2Section1:Toggle({
+    Name = "Chống AFK",
+    Default = false,
+    Callback = function(Value)
+        antiAFKEnabled = Value
+        
+        if antiAFKEnabled then
+            -- Khi người chơi bị kick vì AFK
+            Players.LocalPlayer.Idled:Connect(function()
+                if antiAFKEnabled then
+                    -- Giả lập click chuột để tránh AFK
+                    VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                    wait(0.1)
+                    VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                end
+            end)
+        end
+        
+        Window:Notify({
+            Title = "Chống AFK",
+            Content = Value and "Đã Bật" or "Đã Tắt"
+        })
+    end
+}, "AntiAFKToggle")
+-----------------------------
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local camera = workspace.CurrentCamera
+local defaultFOV = 70
+local fovEnabled = false
+local currentFOV = 70
+
+-- FOV Toggle
+sections.Uni2Section1:Toggle({
+    Name = "FOV Changer",
+    Default = false,
+    Callback = function(Value)
+        fovEnabled = Value
+        if Value then
+            -- Lưu FOV mặc định
+            defaultFOV = camera.FieldOfView
+            camera.FieldOfView = currentFOV
+        else
+            -- Khôi phục FOV mặc định
+            camera.FieldOfView = defaultFOV
+        end
+        
+        Window:Notify({
+            Title = "Phạm Vi Quan Sát",
+            Content = Value and "Đã Bật" or "Đã Tắt"
+        })
+    end
+}, "FOVToggle")
+
+-- FOV Slider
+sections.Uni2Section1:Slider({
+    Name = "Điều Chỉnh Tầm",
+    Default = 70,
+    Minimum = 1,
+    Maximum = 120,
+    DisplayMethod = "Value",
+    Precision = 0,
+    Callback = function(Value)
+        currentFOV = Value
+        if fovEnabled then
+            camera.FieldOfView = Value
+        end
+    end
+}, "FOVSlider")
+
+-- Để đảm bảo FOV luôn được cập nhật
+RunService.RenderStepped:Connect(function()
+    if fovEnabled then
+        camera.FieldOfView = currentFOV
+    end
+end)
+---------------------
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local clickTpEnabled = false
+
+-- Click Teleport Toggle
+sections.Uni2Section1:Toggle({
+    Name = "Click Teleport",
+    Default = false,
+    Callback = function(Value)
+        clickTpEnabled = Value
+        
+        Window:Notify({
+            Title = "Click Teleport",
+            Content = Value and "Đã Bật" or "Đã Tắt"
+        })
+    end
+}, "ClickTpToggle")
+
+-- Xử lý click teleport
+UserInputService.TouchTap:Connect(function(touchPositions)
+    if clickTpEnabled and #touchPositions > 0 then
+        local ray = workspace.CurrentCamera:ScreenPointToRay(touchPositions[1].X, touchPositions[1].Y)
+        local raycastResult = workspace:Raycast(ray.Origin, ray.Direction * 1000)
+        
+        if raycastResult then
+            local character = Players.LocalPlayer.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                character.HumanoidRootPart.CFrame = CFrame.new(raycastResult.Position)
+            end
+        end
+    end
+end)
+------------------
+local Players = game:GetService("Players")
+local UserSettings = UserSettings()
+local GameSettings = UserSettings.GameSettings
+
+-- Unlock Camera Distance Toggle
+sections.Uni2Section1:Toggle({
+    Name = "Mở Giới Hạn Camera",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            -- Tắt giới hạn camera của Roblox
+            if GameSettings.CameraMode == Enum.CameraMode.LockFirstPerson then
+                GameSettings.CameraMode = Enum.CameraMode.Classic
+            end
+            
+            -- Set khoảng cách camera tối đa
+            Players.LocalPlayer.CameraMaxZoomDistance = math.huge
+            GameSettings.CameraZoomSensitivity = 150
+            
+            -- Đảm bảo luôn được zoom xa
+            spawn(function()
+                while Value do
+                    wait()
+                    Players.LocalPlayer.CameraMaxZoomDistance = math.huge
+                    Players.LocalPlayer.CameraMinZoomDistance = 0.5
+                end
+            end)
+        else
+            -- Reset về mặc định
+            Players.LocalPlayer.CameraMaxZoomDistance = 400
+            Players.LocalPlayer.CameraMinZoomDistance = 0.5
+            GameSettings.CameraZoomSensitivity = 100
+        end
+        
+        Window:Notify({
+            Title = "Mở Giới Hạn Camera",
+            Content = Value and "Đã Bật" or "Đã Tắt"
+        })
+    end
+}, "UnlockCamDistToggle")
+---------------------
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Invisicam Toggle
+sections.UniSection1:Toggle({
+    Name = "Camera Xuyên Tường",
+    Default = false,
+    Callback = function(Value)
+        if LocalPlayer.DevEnableMouseLock then        
+            LocalPlayer.DevEnableMouseLock = false
+        end
+        
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.UseJumpPower = false
+        end
+        
+        LocalPlayer.DevCameraOcclusionMode = Value and "Invisicam" or "Zoom"
+        
+        Window:Notify({
+            Title = "Camera Xuyên Tường",
+            Content = Value and "Đã Bật" or "Đã Tắt"
+        })
+    end
+}, "InvisicamToggle")
+---------------------
+sections.Uni2Section1:Paragraph({
+	Header = "Máy Yếu Bị Cân Nhắc Bật",
+	Body = "X-Ray Dễ Dàng Nhìn Xuyên"
+})
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local xrayEnabled = false
+
+-- X-Ray Toggle
+sections.UniSection1:Toggle({
+    Name = "Nhìn Xuyên Tường",
+    Default = false,
+    Callback = function(Value)
+        xrayEnabled = Value
+        
+        if Value then
+            -- Thực hiện X-Ray
+            RunService:BindToRenderStep("XRay", 2000, function()
+                for _, v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("BasePart") then
+                        -- Kiểm tra xem part có thuộc Player không
+                        local isPlayerPart = false
+                        for _, player in pairs(Players:GetPlayers()) do
+                            if player.Character and v:IsDescendantOf(player.Character) then
+                                isPlayerPart = true
+                                break
+                            end
+                        end
+                        
+                        -- Chỉ áp dụng transparency cho các part không thuộc Player
+                        if not isPlayerPart then
+                            v.LocalTransparencyModifier = 0.7
+                        end
+                    end
+                end
+            end)
+        else
+            -- Tắt X-Ray
+            RunService:UnbindFromRenderStep("XRay")
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.LocalTransparencyModifier = 0
+                end
+            end
+        end
+        
+        Window:Notify({
+            Title = "Nhìn Xuyên Tường",
+            Content = Value and "Đã Bật" or "Đã Tắt"
+        })
+    end
+}, "XRayToggle")
+------------------------
+sections.PlaSection1:Paragraph({
+	Header = "Miễn Phí Toàn Bộ Animation",
+	Body = "Người Khác Vẫn Thấy: Tận Hưởng Vui Vẻ"
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local animations = {
+    ["Confident"] = {
+        idle = 1069977950,
+        secondIdle = 1069987858,
+        walk = 1070017263,
+        run = 1070001516,
+        swim = 1070009914,
+        jump = 1069984524,
+        swimIdle = 1070012133,
+        climb = 1069946257,
+        fall = 1069973677
+    },
+    ["Popstar"] = {
+        idle = 1212900985,
+        secondIdle = 1212954651,
+        walk = 1212980338,
+        run = 1212980348,
+        swim = 1212852603,
+        jump = 1069984524,
+        swimIdle = 1212998578,
+        climb = 1213044953,
+        fall = 1212900995
+    },
+    ["Patrol"] = {
+        idle = 1149612882,
+        secondIdle = 1150842221,
+        walk = 1151231493,
+        run = 1150967949,
+        swim = 1151204998,
+        jump = 1150944216,
+        swimIdle = 1151221899,
+        climb = 1148811837,
+        fall = 1148863382
+    },
+    ["Sneaky"] = {
+        idle = 1132473842,
+        secondIdle = 1132477671,
+        walk = 1132510133,
+        run = 1132494274,
+        swim = 1132500520,
+        jump = 1132489853,
+        swimIdle = 1132506407,
+        climb = 1132461372,
+        fall = 1132469004
+    },
+    ["Princess"] = {
+        idle = 941003647,
+        secondIdle = 941013098,
+        walk = 941028902,
+        run = 941015281,
+        swim = 941018893,
+        jump = 941008832,
+        swimIdle = 941025398,
+        climb = 940996062,
+        fall = 941000007
+    },
+    ["Cowboy"] = {
+        idle = 1014390418,
+        secondIdle = 1014398616,
+        walk = 1014421541,
+        run = 1014401683,
+        swim = 1014406523,
+        jump = 1014394726,
+        swimIdle = 1014411816,
+        climb = 1014380606,
+        fall = 1014384571
+    },
+    ["Stylized Female"] = {
+        idle = 4708191566,
+        secondIdle = 4708192150,
+        walk = 4708193840,
+        run = 4708192705,
+        swim = 4708189360,
+        jump = 4708188025,
+        swimIdle = 4708190607,
+        climb = 4708184253,
+        fall = 4708186162
+    }
+}
+
+local currentAnimator = nil
+local updateConnection = nil
+local idleTimer = 0
+local isSecondIdle = false
+local selectedAnimation = "Confident"
+
+local function cleanupAnimations()
+    if updateConnection then
+        updateConnection:Disconnect()
+        updateConnection = nil
+    end
+    
+    if currentAnimator then
+        for _, track in pairs(currentAnimator:GetPlayingAnimationTracks()) do
+            track:Stop()
+            track:Destroy()
+        end
+        currentAnimator:Destroy()
+        currentAnimator = nil
+    end
+end
+
+local function changeAnimation(animName)
+    selectedAnimation = animName
+    
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChild("Humanoid")
+    if not humanoid then return end
+    
+    cleanupAnimations()
+    
+    currentAnimator = Instance.new("Animator")
+    currentAnimator.Parent = humanoid
+    
+    local animTracks = {}
+    local currentAnim = "idle"
+    local animSet = animations[animName]
+    
+    local function loadAnim(id, name)
+        local animation = Instance.new("Animation")
+        animation.AnimationId = "rbxassetid://" .. id
+        animation.Name = name
+        
+        local success, animTrack = pcall(function()
+            return currentAnimator:LoadAnimation(animation)
+        end)
+        
+        if success then
+            animTrack.Looped = (name == "idle" or name == "secondIdle" or 
+                              name == "walk" or name == "run" or 
+                              name == "swim" or name == "swimIdle" or 
+                              name == "climb")
+            
+            animTrack.Priority = name == "idle" and Enum.AnimationPriority.Idle 
+                or (name == "jump" or name == "fall") and Enum.AnimationPriority.Action 
+                or Enum.AnimationPriority.Movement
+        end
+        
+        return animTrack
+    end
+    
+    for name, id in pairs(animSet) do
+        animTracks[name] = loadAnim(id, name)
+    end
+    
+    local function playAnimation(name)
+        if currentAnim == name then return end
+        
+        if animTracks[currentAnim] and animTracks[currentAnim].IsPlaying then
+            animTracks[currentAnim]:Stop(0.1)
+        end
+        
+        if animTracks[name] and not animTracks[name].IsPlaying then
+            animTracks[name]:Play(0.1)
+        end
+        
+        currentAnim = name
+        
+        if name ~= "idle" and name ~= "secondIdle" then
+            idleTimer = 0
+            isSecondIdle = false
+        end
+    end
+    
+    local function updateAnimationState()
+        if not character:IsDescendantOf(game.Workspace) then
+            cleanupAnimations()
+            return
+        end
+        
+        local velocity = humanoid.MoveDirection.Magnitude
+        local state = humanoid:GetState()
+        
+        if state == Enum.HumanoidStateType.Swimming then
+            if velocity > 0 then
+                playAnimation("swim")
+            else
+                playAnimation("swimIdle")
+            end
+        elseif state == Enum.HumanoidStateType.Climbing then
+            playAnimation("climb")
+        elseif state == Enum.HumanoidStateType.Jumping then
+            playAnimation("jump")
+        elseif state == Enum.HumanoidStateType.Freefall then
+            playAnimation("fall")
+        elseif velocity > 0 then
+            if humanoid.WalkSpeed > 16 then
+                playAnimation("run")
+            else
+                playAnimation("walk")
+            end
+            idleTimer = 0
+            isSecondIdle = false
+        else
+            if currentAnim ~= "idle" and currentAnim ~= "secondIdle" then
+                playAnimation("idle")
+            end
+            
+            idleTimer = idleTimer + RunService.Heartbeat:Wait()
+            
+            if idleTimer >= 10 and not isSecondIdle then
+                playAnimation("secondIdle")
+                isSecondIdle = true
+            elseif idleTimer >= 20 then
+                playAnimation("idle")
+                idleTimer = 0
+                isSecondIdle = false
+            end
+        end
+    end
+    
+    updateConnection = RunService.Heartbeat:Connect(updateAnimationState)
+    
+    character.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            cleanupAnimations()
+        end
+    end)
+    
+    playAnimation("idle")
+end
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(0.5)
+    if selectedAnimation then
+        changeAnimation(selectedAnimation)
+    end
+end)
+
+sections.PlaSection1:Dropdown({
+    Name = "FE Animation Changer",
+    Default = "Confident",
+    Options = {"Confident", "Popstar", "Patrol", "Sneaky", "Princess", "Cowboy", "Stylized Female"},
+    Callback = function(Value)
+        changeAnimation(Value)
+        Window:Notify({
+            Title = "Animation Changer",
+            Content = "Đã đổi sang animation " .. Value
+        })
+    end
+}, "AnimationChanger")
+-------------------------
+local Player = game:GetService("Players").LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Root = Character:WaitForChild("HumanoidRootPart")
+local RunService = game:GetService("RunService")
+local SpinConnection = nil
+local SpinSpeed = 50 -- Tốc độ mặc định
+
+sections.PlaSection1:Slider({
+    Name = "Spin Speed",
+    Default = 50,
+    Minimum = 0,
+    Maximum = 500, -- Tăng maximum lên 500
+    DisplayMethod = "Percent",
+    Precision = 0,
+    Callback = function(Value)
+        SpinSpeed = Value
+    end
+})
+
+sections.PlaSection1:Toggle({
+    Name = "Spin",
+    Default = false,
+    Callback = function(value)
+        if value then
+            local spinAngle = 0
+            SpinConnection = RunService.Heartbeat:Connect(function()
+                if Root then
+                    spinAngle = spinAngle + math.rad(SpinSpeed/10)
+                    Root.CFrame = CFrame.new(Root.Position) * CFrame.Angles(0, spinAngle, 0)
+                end
+            end)
+        else
+            if SpinConnection then
+                SpinConnection:Disconnect()
+                SpinConnection = nil
+            end
+        end
+    end
+})
+
+Player.CharacterAdded:Connect(function(newCharacter)
+    Character = newCharacter
+    Root = Character:WaitForChild("HumanoidRootPart")
+    if SpinConnection then
+        SpinConnection:Disconnect()
+        SpinConnection = nil
+    end
+end)
+
+
+----------------------
+local Player = game:GetService("Players").LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Root = Character:WaitForChild("HumanoidRootPart")
+local Humanoid = Character:WaitForChild("Humanoid")
+local RunService = game:GetService("RunService")
+local AstronautConnection = nil
+local FloatAnimation = nil
+
+sections.PlaSection1:Toggle({
+    Name = "Bay Lơ Lửng",
+    Default = false,
+    Callback = function(value)
+        if value then
+            -- Tạo animation float
+            local FloatTrack = Instance.new("Animation")
+            FloatTrack.AnimationId = "rbxassetid://1014384571" -- Animation nằm ngang
+            FloatAnimation = Humanoid:LoadAnimation(FloatTrack)
+            FloatAnimation:Play()
+            
+            -- Tạo effect float
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Name = "AstronautFloat"
+            bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            bodyVelocity.Parent = Root
+            
+            -- Đưa nhân vật lên cao
+            Root.CFrame = Root.CFrame + Vector3.new(0, 6, 0)
+            
+            AstronautConnection = RunService.Heartbeat:Connect(function()
+                if Root and bodyVelocity and bodyVelocity.Parent then
+                    local offset = math.sin(tick() * 2) * 0.5
+                    bodyVelocity.Velocity = Vector3.new(0, offset * 10, 0)
+                end
+            end)
+        else
+            if FloatAnimation then
+                FloatAnimation:Stop()
+                FloatAnimation:Destroy()
+                FloatAnimation = nil
+            end
+            
+            if AstronautConnection then
+                AstronautConnection:Disconnect()
+                AstronautConnection = nil
+            end
+            
+            if Root:FindFirstChild("AstronautFloat") then
+                Root:FindFirstChild("AstronautFloat"):Destroy()
+            end
+        end
+    end
+})
+
+Player.CharacterAdded:Connect(function(newCharacter)
+    Character = newCharacter
+    Root = Character:WaitForChild("HumanoidRootPart")
+    Humanoid = Character:WaitForChild("Humanoid")
+    
+    if FloatAnimation then
+        FloatAnimation:Stop()
+        FloatAnimation:Destroy()
+        FloatAnimation = nil
+    end
+    
+    if AstronautConnection then
+        AstronautConnection:Disconnect()
+        AstronautConnection = nil
+    end
+    
+    if Root:FindFirstChild("AstronautFloat") then
+        Root:FindFirstChild("AstronautFloat"):Destroy()
+    end
+end)
+------------------------
 
 ------------------------------------------------------------------------------------------------------------
 
@@ -1794,8 +2717,13 @@ sections.MainSection1:Header({
 })
 
 sections.MainSection1:Paragraph({
-	Header = "Thông tin",
+	Header = "Cập Nhật Chính",
 	Body = "Update Sửa Lỗi Và Thêm ▷Aimbot ▷Đồ Họa ▷Universal"
+})
+
+sections.Main2Section1:Paragraph({
+	Header = "Cập Nhật Phụ",
+	Body = "✔Update• +Visual 【•SpeedHack •Nhảy Cao •Nhảy liên tục •Xuyên tường •Lơ lửng trên không •Trọng lực •Chống Afk •Phạm vi quan sát •Click dịch chuyển •Mở giới hạn camera •Camera xuyên •Nhìn xuyên】 ✔Update 【+Player •Free +7 Animation •Spin •Bay lơ lửng】"
 })
 
 sections.MainSection1:Label({
