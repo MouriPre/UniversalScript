@@ -334,199 +334,232 @@ sections.Esp2Section1:Toggle({
     Callback = function(value)
         ESP.Enabled = value
         
-        if value then
-            local function CreateESP(player)
-                if player == game.Players.LocalPlayer then return end
-
-                local function IsTeammate()
-                    if not ESP.TeamCheck then return false end
-                    return player.Team == game.Players.LocalPlayer.Team
-                end
-
-                local container = Drawing.new("Square")
-                container.Thickness = 1
-                container.Filled = true
-                container.Transparency = 0.8
-                container.Color = Color3.fromRGB(25, 25, 25)
-
-                local healthBar = Drawing.new("Square")
-                healthBar.Thickness = 1
-                healthBar.Filled = true
-                healthBar.Transparency = 1
-                healthBar.Color = Color3.fromRGB(0, 255, 200)
-
-                local glowEffect = Drawing.new("Square")
-                glowEffect.Thickness = 1
-                glowEffect.Filled = true
-                glowEffect.Transparency = 0.4
-                glowEffect.Color = Color3.fromRGB(0, 255, 200)
-
-                local healthText = Drawing.new("Text")
-                healthText.Center = false
-                healthText.Outline = true
-                healthText.Color = Color3.fromRGB(255, 255, 255)
-                healthText.Font = 3
-                healthText.Size = 12
-
-                local previousHealth = 100
-                local isAnimating = false
-                local flashDuration = 0
-                local originalTransparency = healthBar.Transparency
-
-                local function AnimateHealthChange()
-                    if isAnimating then return end
-                    isAnimating = true
-                    flashDuration = 0
-
-                    local connection = game:GetService("RunService").RenderStepped:Connect(function(delta)
-                        if not isAnimating or not ESP.Enabled then 
-                            isAnimating = false
-                            connection:Disconnect()
-                            return 
-                        end
-                        
-                        flashDuration = flashDuration + delta
-                        if flashDuration >= 0.5 then
-                            isAnimating = false
-                            healthBar.Transparency = originalTransparency
-                            glowEffect.Transparency = 0.4
-                            healthText.Transparency = 1
-                            connection:Disconnect()
-                            return
-                        end
-
-                        local wave = math.abs(math.sin(flashDuration * 30))
-                        healthBar.Transparency = originalTransparency * (0.5 + 0.5 * wave)
-                        glowEffect.Transparency = 0.4 * (0.5 + 0.5 * wave)
-                        healthText.Transparency = 1 * (0.5 + 0.5 * wave)
-                        
-                        local shake = math.random(-1, 1)
-                        healthBar.Position = healthBar.Position + Vector2.new(shake, shake)
-                        glowEffect.Position = glowEffect.Position + Vector2.new(shake, shake)
-                        healthText.Position = healthText.Position + Vector2.new(shake, shake)
-                    end)
-                end
-
-                local function UpdateESP()
-                    if not ESP.Enabled then return end
-                    
-                    if IsTeammate() then
-                        container.Visible = false
-                        healthBar.Visible = false
-                        glowEffect.Visible = false
-                        healthText.Visible = false
-                        return
-                    end
-                    
-                    local character = player.Character
-                    if not character or not character:FindFirstChild("Humanoid") or not character:FindFirstChild("HumanoidRootPart") or not character:FindFirstChild("Head") then
-                        container.Visible = false
-                        healthBar.Visible = false
-                        glowEffect.Visible = false
-                        healthText.Visible = false
-                        return
-                    end
-
-                    local humanoid = character.Humanoid
-                    local head = character.Head
-
-                    local verticalOffset = 2.5
-                    local headPos = head.Position + Vector3.new(0, verticalOffset, 0)
-                    
-                    local headVec, onScreen = workspace.CurrentCamera:WorldToViewportPoint(headPos)
-                    
-                    if not onScreen then
-                        container.Visible = false
-                        healthBar.Visible = false
-                        glowEffect.Visible = false
-                        healthText.Visible = false
-                        return
-                    end
-
-                    local barWidth = 65
-                    local barHeight = 6
-                    local padding = 2
-                    local health = humanoid.Health / humanoid.MaxHealth
-                    local healthPercent = math.floor(health * 100)
-
-                    if healthPercent < previousHealth then
-                        AnimateHealthChange()
-                    end
-                    previousHealth = healthPercent
-
-                    local containerPos = Vector2.new(headVec.X - barWidth/2, headVec.Y - barHeight/2)
-                    
-                    container.Size = Vector2.new(barWidth, barHeight)
-                    container.Position = containerPos
-                    container.Visible = true
-
-                    local targetWidth = (barWidth - padding * 2) * health
-                    local currentWidth = healthBar.Size.X
-                    healthBar.Size = Vector2.new(
-                        currentWidth + (targetWidth - currentWidth) * 0.1,
-                        barHeight - padding * 2
-                    )
-                    healthBar.Position = Vector2.new(containerPos.X + padding, containerPos.Y + padding)
-                    healthBar.Visible = true
-
-                    glowEffect.Size = Vector2.new(healthBar.Size.X, 2)
-                    glowEffect.Position = Vector2.new(containerPos.X + padding, containerPos.Y)
-                    glowEffect.Visible = true
-
-                    local textVerticalOffset = 15
-                    healthText.Text = healthPercent .. "%"
-                    healthText.Position = Vector2.new(
-                        containerPos.X - 2,
-                        containerPos.Y - textVerticalOffset
-                    )
-                    healthText.Visible = true
-                end
-
-                local renderConnection = game:GetService("RunService").RenderStepped:Connect(function()
-                    if not ESP.Enabled then return end
-                    if player.Parent == game:GetService("Players") then
-                        UpdateESP()
-                    else
-                        container:Remove()
-                        healthBar:Remove()
-                        glowEffect:Remove()
-                        healthText:Remove()
-                        renderConnection:Disconnect()
-                    end
-                end)
-
-                table.insert(espConnections, {
-                    container = container,
-                    healthBar = healthBar,
-                    glowEffect = glowEffect,
-                    healthText = healthText,
-                    connection = renderConnection
-                })
-            end
-
-            for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-                if player ~= game.Players.LocalPlayer then
-                    CreateESP(player)
-                end
-            end
-
-            game:GetService("Players").PlayerAdded:Connect(function(player)
-                if player ~= game.Players.LocalPlayer then
-                    CreateESP(player)
-                end
-            end)
-        else
+        -- Cleanup function để xóa toàn bộ ESP
+        local function cleanupESP()
             for _, esp in ipairs(espConnections) do
-                esp.container:Remove()
-                esp.healthBar:Remove()
-                esp.glowEffect:Remove()
-                esp.healthText:Remove()
-                esp.connection:Disconnect()
+                if esp.container then esp.container:Remove() end
+                if esp.healthBar then esp.healthBar:Remove() end
+                if esp.glowEffect then esp.glowEffect:Remove() end
+                if esp.healthText then esp.healthText:Remove() end
+                if esp.connection then esp.connection:Disconnect() end
+                
+                -- Set tất cả các đối tượng về nil
+                esp.container = nil
+                esp.healthBar = nil
+                esp.glowEffect = nil
+                esp.healthText = nil
+                esp.connection = nil
             end
             table.clear(espConnections)
         end
+
+        if not value then
+            cleanupESP()
+            return
+        end
+
+        local function CreateESP(player)
+            if player == game.Players.LocalPlayer then return end
+
+            local function IsTeammate()
+                if not ESP.TeamCheck then return false end
+                return player.Team == game.Players.LocalPlayer.Team
+            end
+
+            local container = Drawing.new("Square")
+            container.Thickness = 1
+            container.Filled = true
+            container.Transparency = 0.8
+            container.Color = Color3.fromRGB(25, 25, 25)
+            container.Visible = false
+
+            local healthBar = Drawing.new("Square")
+            healthBar.Thickness = 1
+            healthBar.Filled = true
+            healthBar.Transparency = 1
+            healthBar.Color = Color3.fromRGB(0, 255, 200)
+            healthBar.Visible = false
+
+            local glowEffect = Drawing.new("Square")
+            glowEffect.Thickness = 1
+            glowEffect.Filled = true
+            glowEffect.Transparency = 0.4
+            glowEffect.Color = Color3.fromRGB(0, 255, 200)
+            glowEffect.Visible = false
+
+            local healthText = Drawing.new("Text")
+            healthText.Center = false
+            healthText.Outline = true
+            healthText.Color = Color3.fromRGB(255, 255, 255)
+            healthText.Font = 3
+            healthText.Size = 12
+            healthText.Visible = false
+
+            local previousHealth = 100
+            local isAnimating = false
+            local flashDuration = 0
+            local originalTransparency = healthBar.Transparency
+
+            local function AnimateHealthChange()
+                if isAnimating then return end
+                isAnimating = true
+                flashDuration = 0
+
+                local connection = game:GetService("RunService").RenderStepped:Connect(function(delta)
+                    if not isAnimating or not ESP.Enabled then 
+                        isAnimating = false
+                        connection:Disconnect()
+                        return 
+                    end
+                    
+                    flashDuration = flashDuration + delta
+                    if flashDuration >= 0.5 then
+                        isAnimating = false
+                        healthBar.Transparency = originalTransparency
+                        glowEffect.Transparency = 0.4
+                        healthText.Transparency = 1
+                        connection:Disconnect()
+                        return
+                    end
+
+                    local wave = math.abs(math.sin(flashDuration * 30))
+                    healthBar.Transparency = originalTransparency * (0.5 + 0.5 * wave)
+                    glowEffect.Transparency = 0.4 * (0.5 + 0.5 * wave)
+                    healthText.Transparency = 1 * (0.5 + 0.5 * wave)
+                    
+                    local shake = math.random(-1, 1)
+                    healthBar.Position = healthBar.Position + Vector2.new(shake, shake)
+                    glowEffect.Position = glowEffect.Position + Vector2.new(shake, shake)
+                    healthText.Position = healthText.Position + Vector2.new(shake, shake)
+                end)
+            end
+
+            local function UpdateESP()
+                if not ESP.Enabled then
+                    container.Visible = false
+                    healthBar.Visible = false
+                    glowEffect.Visible = false
+                    healthText.Visible = false
+                    return
+                end
+                
+                if IsTeammate() then
+                    container.Visible = false
+                    healthBar.Visible = false
+                    glowEffect.Visible = false
+                    healthText.Visible = false
+                    return
+                end
+                
+                local character = player.Character
+                if not character or not character:FindFirstChild("Humanoid") or not character:FindFirstChild("HumanoidRootPart") or not character:FindFirstChild("Head") then
+                    container.Visible = false
+                    healthBar.Visible = false
+                    glowEffect.Visible = false
+                    healthText.Visible = false
+                    return
+                end
+
+                local humanoid = character.Humanoid
+                local head = character.Head
+
+                local verticalOffset = 2.5
+                local headPos = head.Position + Vector3.new(0, verticalOffset, 0)
+                
+                local headVec, onScreen = workspace.CurrentCamera:WorldToViewportPoint(headPos)
+                
+                if not onScreen then
+                    container.Visible = false
+                    healthBar.Visible = false
+                    glowEffect.Visible = false
+                    healthText.Visible = false
+                    return
+                end
+
+                local barWidth = 65
+                local barHeight = 6
+                local padding = 2
+                local health = humanoid.Health / humanoid.MaxHealth
+                local healthPercent = math.floor(health * 100)
+
+                if healthPercent < previousHealth then
+                    AnimateHealthChange()
+                end
+                previousHealth = healthPercent
+
+                local containerPos = Vector2.new(headVec.X - barWidth/2, headVec.Y - barHeight/2)
+                
+                container.Size = Vector2.new(barWidth, barHeight)
+                container.Position = containerPos
+                container.Visible = true
+
+                local targetWidth = (barWidth - padding * 2) * health
+                local currentWidth = healthBar.Size.X or 0
+                healthBar.Size = Vector2.new(
+                    currentWidth + (targetWidth - currentWidth) * 0.1,
+                    barHeight - padding * 2
+                )
+                healthBar.Position = Vector2.new(containerPos.X + padding, containerPos.Y + padding)
+                healthBar.Visible = true
+
+                glowEffect.Size = Vector2.new(healthBar.Size.X, 2)
+                glowEffect.Position = Vector2.new(containerPos.X + padding, containerPos.Y)
+                glowEffect.Visible = true
+
+                local textVerticalOffset = 15
+                healthText.Text = healthPercent .. "%"
+                healthText.Position = Vector2.new(
+                    containerPos.X - 2,
+                    containerPos.Y - textVerticalOffset
+                )
+                healthText.Visible = true
+            end
+
+            local renderConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                if not ESP.Enabled then 
+                    container.Visible = false
+                    healthBar.Visible = false
+                    glowEffect.Visible = false
+                    healthText.Visible = false
+                    return 
+                end
+                
+                if player.Parent == game:GetService("Players") then
+                    UpdateESP()
+                else
+                    container:Remove()
+                    healthBar:Remove()
+                    glowEffect:Remove()
+                    healthText:Remove()
+                    renderConnection:Disconnect()
+                end
+            end)
+
+            table.insert(espConnections, {
+                container = container,
+                healthBar = healthBar,
+                glowEffect = glowEffect,
+                healthText = healthText,
+                connection = renderConnection
+            })
+        end
+
+        -- Tạo ESP cho người chơi hiện tại
+        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+            if player ~= game.Players.LocalPlayer then
+                CreateESP(player)
+            end
+        end
+
+        -- Theo dõi người chơi mới
+        game:GetService("Players").PlayerAdded:Connect(function(player)
+            if player ~= game.Players.LocalPlayer then
+                CreateESP(player)
+            end
+        end)
     end
 })
+
 
 sections.Esp2Section1:Toggle({
     Name = "Team Check", 
