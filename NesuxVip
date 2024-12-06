@@ -73,6 +73,7 @@ local sections = {
 	UniSection1 = tabs.Uni:Section({ Side = "Left" }),
 	Uni2Section1 = tabs.Uni:Section({ Side = "Right" }),
 	PlaSection1 = tabs.Pla:Section({ Side = "Left" }),
+	Pla2Section1 = tabs.Pla:Section({ Side = "Right" }),
 	ShaSection1 = tabs.Sha:Section({ Side = "Left" }),
 }
 
@@ -2668,6 +2669,529 @@ Player.CharacterAdded:Connect(function(newCharacter)
     end
 end)
 ------------------------
+local savedPosition = nil
+local walkConnection = nil
+local humanoidMoving = false
+local PathfindingService = game:GetService("PathfindingService")
+
+-- Tạo path visual
+local function visualizePath(path)
+    -- Xóa path cũ
+    local existing = game.Workspace:FindFirstChild("PathVisual")
+    if existing then
+        existing:Destroy()
+    end
+    
+    -- Tạo folder mới
+    local pathVisual = Instance.new("Folder")
+    pathVisual.Name = "PathVisual"
+    pathVisual.Parent = game.Workspace
+    
+    -- Tạo beams cho đường đi
+    for i = 1, #path - 1 do
+        -- Attachment points
+        local a0 = Instance.new("Attachment")
+        local a1 = Instance.new("Attachment")
+        
+        -- Create points for beam
+        local p0 = Instance.new("Part")
+        p0.Name = "BeamPoint" .. i
+        p0.Anchored = true
+        p0.CanCollide = false
+        p0.Transparency = 1
+        p0.Position = path[i]
+        p0.Size = Vector3.new(0.1, 0.1, 0.1)
+        p0.Parent = pathVisual
+        a0.Parent = p0
+        
+        local p1 = Instance.new("Part")
+        p1.Name = "BeamPoint" .. (i + 1)
+        p1.Anchored = true
+        p1.CanCollide = false
+        p1.Transparency = 1
+        p1.Position = path[i + 1]
+        p1.Size = Vector3.new(0.1, 0.1, 0.1)
+        p1.Parent = pathVisual
+        a1.Parent = p1
+        
+        -- Tạo beam
+        local beam = Instance.new("Beam")
+        beam.Name = "PathBeam" .. i
+        beam.FaceCamera = true
+        beam.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 255))
+        })
+        beam.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.5),
+            NumberSequenceKeypoint.new(1, 0.5)
+        })
+        beam.Width0 = 0.3
+        beam.Width1 = 0.3
+        beam.Attachment0 = a0
+        beam.Attachment1 = a1
+        beam.Parent = p0
+        
+        -- Tạo particle effects tại mỗi điểm
+        local emitter = Instance.new("ParticleEmitter")
+        emitter.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255))
+        emitter.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+        emitter.Size = NumberSequence.new(0.3)
+        emitter.Lifetime = NumberRange.new(0.5)
+        emitter.Rate = 5
+        emitter.Speed = NumberRange.new(0)
+        emitter.Parent = p0
+    end
+    
+    -- Tạo điểm đích với particle effect
+    local targetPart = Instance.new("Part")
+    targetPart.Name = "TargetMarker"
+    targetPart.Anchored = true
+    targetPart.CanCollide = false
+    targetPart.Transparency = 1
+    targetPart.Position = path[#path] + Vector3.new(0, 0.1, 0)
+    targetPart.Size = Vector3.new(0.1, 0.1, 0.1)
+    targetPart.Parent = pathVisual
+
+    local targetAttachment = Instance.new("Attachment")
+    targetAttachment.Parent = targetPart
+
+    -- Ring effect ở điểm đích
+    local ringEffect = Instance.new("ParticleEmitter")
+    ringEffect.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255))
+    ringEffect.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    ringEffect.Size = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 2),
+        NumberSequenceKeypoint.new(1, 4)
+    })
+    ringEffect.Lifetime = NumberRange.new(1)
+    ringEffect.Rate = 10
+    ringEffect.Speed = NumberRange.new(0)
+    ringEffect.SpreadAngle = Vector2.new(0, 360)
+    ringEffect.Shape = Enum.ParticleEmitterShape.Disc
+    ringEffect.Parent = targetAttachment
+end
+
+-- Xóa path visual
+local function clearPathVisual()
+    local existing = game.Workspace:FindFirstChild("PathVisual")
+    if existing then
+        existing:Destroy()
+    end
+end
+
+-- Dropdown để chọn phương thức di chuyển
+local moveDropdown = sections.PlaSection1:Dropdown({
+    Name = "Loạn Di Chuyển",
+    Multi = false,
+    Required = false,
+    Options = {"Teleport", "Walk", "Tween"},
+    Default = "Teleport",
+    Callback = function(Value)
+        print("Selected: " .. Value)
+    end,
+})
+
+-- Button lưu vị trí
+sections.PlaSection1:Button({
+    Name = "Đặt Vị Trí",
+    Callback = function()
+        local character = game.Players.LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            savedPosition = character.HumanoidRootPart.CFrame
+            print("Position saved!")
+        end
+    end
+})
+
+-- Button di chuyển đến vị trí đã lưu
+sections.PlaSection1:Button({
+    Name = "Bấm Để Đi",
+    Callback = function()
+        local character = game.Players.LocalPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") or not savedPosition then
+            print("Character or saved position not found!")
+            return
+        end
+
+        local humanoid = character:FindFirstChild("Humanoid")
+        if not humanoid then
+            print("Humanoid not found!")
+            return
+        end
+
+        if walkConnection then
+            walkConnection:Disconnect()
+            walkConnection = nil
+            humanoidMoving = false
+        end
+        clearPathVisual()
+
+        local moveType = moveDropdown.Value
+
+        if moveType == "Teleport" then
+            character.HumanoidRootPart.CFrame = savedPosition
+            print("Teleported!")
+
+        elseif moveType == "Walk" then
+    local path = PathfindingService:CreatePath({
+        AgentRadius = 2,
+        AgentHeight = 5,
+        AgentCanJump = true
+    })
+
+    local success, errorMessage = pcall(function()
+        path:ComputeAsync(character.HumanoidRootPart.Position, savedPosition.Position)
+    end)
+
+    if success and path.Status == Enum.PathStatus.Success then
+        local waypoints = {}
+        for _, waypoint in ipairs(path:GetWaypoints()) do
+            table.insert(waypoints, waypoint.Position)
+        end
+
+        visualizePath(waypoints)
+
+        humanoidMoving = true
+        local currentWaypoint = 2
+        
+        humanoid.WalkSpeed = 16
+
+        local function moveToNextWaypoint()
+            if not humanoidMoving then return end
+            if currentWaypoint <= #waypoints then
+                humanoid:MoveTo(waypoints[currentWaypoint])
+            end
+        end
+
+        walkConnection = humanoid.MoveToFinished:Connect(function(reached)
+            if reached and humanoidMoving then
+                currentWaypoint = currentWaypoint + 1
+                if currentWaypoint <= #waypoints then
+                    moveToNextWaypoint()
+                else
+                    humanoidMoving = false
+                    clearPathVisual()
+                    walkConnection:Disconnect()
+                    walkConnection = nil
+                    print("Reached destination!")
+                end
+            end
+        end)
+                
+                moveToNextWaypoint()
+        print("Walking to position...")
+    else
+        print("Failed to compute path: " .. tostring(errorMessage))
+    end
+
+        elseif moveType == "Tween" then
+            local tweenService = game:GetService("TweenService")
+            local tweenInfo = TweenInfo.new(
+                1,
+                Enum.EasingStyle.Linear,
+                Enum.EasingDirection.Out
+            )
+            
+            local tween = tweenService:Create(character.HumanoidRootPart, tweenInfo, {
+                CFrame = savedPosition
+            })
+            tween:Play()
+            print("Tweening to position...")
+        end
+    end
+})
+-----------------
+sections.Pla2Section1:Paragraph({
+	Header = "Khi Bật Sẽ Ghi Lại Hành Động Khi Tắt Sẽ Tua Ngược Lại Hành Động",
+	Body = "Ghi Hành Động Khi Bật Sẽ Ghi Lại Lưư Ý Phải Tắt Đi Mới Lưu. Và Bật Phát Lại Sẽ Lập Đi Lập Lại Hành Động Đã Ghi"
+})
+
+local recordedActions = {}
+local isRecording = false
+local isReplaying = false
+local recordingConnection = nil
+local reverseConnection = nil
+
+sections.Pla2Section1:Toggle({
+    Name = "Tua Ngược Hành Động",
+    Default = false,
+    Callback = function(value)
+        local character = game.Players.LocalPlayer.Character
+        local humanoid = character and character:FindFirstChild("Humanoid")
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        
+        if not character or not humanoid or not rootPart then
+            Window:Notify({
+                Title = "Error",
+                Content = "Character not found!",
+                Duration = 3
+            })
+            return
+        end
+
+        -- Cleanup function
+        local function cleanupConnections()
+            if recordingConnection then
+                recordingConnection:Disconnect()
+                recordingConnection = nil
+            end
+            if reverseConnection then
+                reverseConnection:Disconnect()
+                reverseConnection = nil
+            end
+        end
+
+        if value then -- Bắt đầu ghi
+            cleanupConnections()
+            recordedActions = {}
+            isRecording = true
+
+            recordingConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                if isRecording then
+                    table.insert(recordedActions, {
+                        position = rootPart.CFrame,
+                        jumping = humanoid.Jump,
+                        moveDirection = humanoid.MoveDirection
+                    })
+                end
+            end)
+
+            Window:Notify({
+                Title = "Recording",
+                Content = "Started recording movements",
+                Duration = 3
+            })
+
+        else -- Kết thúc ghi và phát ngược lại ngay lập tức
+            if isRecording then
+                isRecording = false
+                cleanupConnections()
+
+                if #recordedActions > 0 then
+                    -- Phát ngược lại ngay lập tức
+                    local actionIndex = #recordedActions
+                    reverseConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                        if actionIndex < 1 then
+                            cleanupConnections()
+                            return
+                        end
+
+                        local action = recordedActions[actionIndex]
+                        rootPart.CFrame = action.position
+                        humanoid.Jump = action.jumping
+                        humanoid:Move(action.moveDirection)
+                        actionIndex = actionIndex - 1
+                    end)
+
+                    Window:Notify({
+                        Title = "Replaying",
+                        Content = "Replaying movements in reverse",
+                        Duration = 3
+                    })
+                end
+            end
+        end
+    end
+})
+----------------------
+local recordedActions = {}
+local isRecording = false
+local isReplaying = false
+local recordingConnection = nil
+local replayConnection = nil
+
+-- Toggle để ghi lại hành động
+sections.Pla2Section1:Toggle({
+    Name = "Ghi Hành Động",
+    Default = false,
+    Callback = function(value)
+        local character = game.Players.LocalPlayer.Character
+        local humanoid = character and character:FindFirstChild("Humanoid")
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        
+        if not character or not humanoid or not rootPart then
+            Window:Notify({
+                Title = "Error",
+                Content = "Character not found!",
+                Duration = 3
+            })
+            return
+        end
+
+        if value then -- Bắt đầu ghi
+            recordedActions = {}
+            isRecording = true
+
+            if recordingConnection then
+                recordingConnection:Disconnect()
+            end
+
+            recordingConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                if isRecording then
+                    table.insert(recordedActions, {
+                        position = rootPart.CFrame,
+                        jumping = humanoid.Jump,
+                        moveDirection = humanoid.MoveDirection
+                    })
+                end
+            end)
+
+            Window:Notify({
+                Title = "Recording",
+                Content = "Started recording movements",
+                Duration = 3
+            })
+        else -- Kết thúc ghi và lưu lại
+            isRecording = false
+            if recordingConnection then
+                recordingConnection:Disconnect()
+            end
+
+            Window:Notify({
+                Title = "Saved",
+                Content = "Recording saved!",
+                Duration = 3
+            })
+        end
+    end
+})
+
+-- Toggle để phát lại hành động đã ghi
+sections.Pla2Section1:Toggle({
+    Name = "Phát Lại",
+    Default = false,
+    Callback = function(value)
+        local character = game.Players.LocalPlayer.Character
+        local humanoid = character and character:FindFirstChild("Humanoid")
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        
+        if not character or not humanoid or not rootPart then
+            Window:Notify({
+                Title = "Error",
+                Content = "Character not found!",
+                Duration = 3
+            })
+            return
+        end
+
+        if value then -- Bắt đầu phát lại
+            if #recordedActions == 0 then
+                Window:Notify({
+                    Title = "Error",
+                    Content = "No recorded movements found!",
+                    Duration = 3
+                })
+                return
+            end
+
+            isReplaying = true
+            local actionIndex = 1
+
+            if replayConnection then
+                replayConnection:Disconnect()
+            end
+
+            replayConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                if not isReplaying then
+                    replayConnection:Disconnect()
+                    return
+                end
+
+                if actionIndex > #recordedActions then
+                    actionIndex = 1 -- Lặp lại từ đầu
+                end
+
+                local action = recordedActions[actionIndex]
+                rootPart.CFrame = action.position
+                humanoid.Jump = action.jumping
+                humanoid:Move(action.moveDirection)
+                actionIndex = actionIndex + 1
+            end)
+
+            Window:Notify({
+                Title = "Replaying",
+                Content = "Replaying recorded movements",
+                Duration = 3
+            })
+        else -- Dừng phát lại
+            isReplaying = false
+            if replayConnection then
+                replayConnection:Disconnect()
+            end
+
+            Window:Notify({
+                Title = "Stopped",
+                Content = "Stopped replaying movements",
+                Duration = 3
+            })
+        end
+    end
+})
+-------------------
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local isShiftLockEnabled = false
+local shiftLockConnection
+
+sections.Pla2Section1:Toggle({
+    Name = "Shiftlock",
+    Default = false,
+    Callback = function(value)
+        local character = player.Character
+        if not character then return end
+        
+        local humanoid = character:FindFirstChild("Humanoid")
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not rootPart then return end
+
+        isShiftLockEnabled = value
+        
+        if value then
+            camera.CameraType = Enum.CameraType.Custom
+            
+            if shiftLockConnection then
+                shiftLockConnection:Disconnect()
+            end
+            
+            shiftLockConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                if not isShiftLockEnabled then return end
+                
+                -- Xoay character theo hướng camera
+                local cameraLook = camera.CFrame.LookVector
+                rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Vector3.new(cameraLook.X, 0, cameraLook.Z))
+            end)
+            
+            Window:Notify({
+                Title = "Shiftlock",
+                Content = "Enabled",
+                Duration = 3
+            })
+        else
+            camera.CameraType = Enum.CameraType.Custom
+            
+            if shiftLockConnection then
+                shiftLockConnection:Disconnect()
+                shiftLockConnection = nil
+            end
+            
+            Window:Notify({
+                Title = "Shiftlock",
+                Content = "Disabled",
+                Duration = 3
+            })
+        end
+    end
+})
+
 
 ------------------------------------------------------------------------------------------------------------
 
