@@ -56,10 +56,11 @@ local tabGroups = {
 
 local tabs = {
 	Main = tabGroups.TabGroup1:Tab({ Name = "Thông báo Update", Image = "rbxassetid://81478297548754" }),
-	Esp = tabGroups.TabGroup1:Tab({ Name = "Định vị", Image = "rbxassetid://84727577248856" }),
+	Esp = tabGroups.TabGroup1:Tab({ Name = "EspPlayer", Image = "rbxassetid://84727577248856" }),
+		EspM = tabGroups.TabGroup1:Tab({ Name = "EspM", Image = "rbxassetid://84727577248856" }),
 	Aim = tabGroups.TabGroup1:Tab({ Name = "Aimbot", Image = "rbxassetid://130939958971532" }),
 	Uni = tabGroups.TabGroup1:Tab({ Name = "Visual", Image = "rbxassetid://122760395538267" }),
-	Pla = tabGroups.TabGroup1:Tab({ Name = "Mục Nhân Vật", Image = "rbxassetid://122760395538267" }),
+	Pla = tabGroups.TabGroup1:Tab({ Name = "Player", Image = "rbxassetid://122760395538267" }),
 	Sha = tabGroups.TabGroup1:Tab({ Name = "Đồ họa", Image = "rbxassetid://87916652848972" }),
 	Settings = tabGroups.TabGroup1:Tab({ Name = "Cài đặt", Image = "rbxassetid://75791170485208" })
 }
@@ -69,7 +70,9 @@ local sections = {
 	Main2Section1 = tabs.Main:Section({ Side = "Right" }),
 	EspSection1 = tabs.Esp:Section({ Side = "Left" }),
 	Esp2Section1 = tabs.Esp:Section({ Side = "Right" }),
+	EspMSection1 = tabs.EspM:Section({ Side = "Left" }),
 	AimSection1 = tabs.Aim:Section({ Side = "Left" }),
+	Aim2Section1 = tabs.Aim:Section({ Side = "Right" }),
 	UniSection1 = tabs.Uni:Section({ Side = "Left" }),
 	Uni2Section1 = tabs.Uni:Section({ Side = "Right" }),
 	PlaSection1 = tabs.Pla:Section({ Side = "Left" }),
@@ -1249,6 +1252,9 @@ local AimbotRange = 50
 local FOVColor = Color3.fromRGB(255, 255, 255)
 local TeamCheck = false
 local WallCheck = false
+local LockedPlayer = nil
+local LockEnabled = false
+local AimbotSpeed = 100
 
 -- Tạo FOV Circle
 local fovCircle = Drawing.new("Circle")
@@ -1323,6 +1329,17 @@ local function GetClosestPlayerInFOV()
     return closestPlayer
 end
 
+local function GetClosestPlayerWhenNoLock()
+    if LockEnabled and LockedPlayer and 
+       LockedPlayer.Character and 
+       LockedPlayer.Character:FindFirstChild("Humanoid") and 
+       LockedPlayer.Character.Humanoid.Health > 0 then
+        return LockedPlayer
+    end
+    
+    return GetClosestPlayerInFOV()
+end
+
 -- Hàm cập nhật
 local function UpdateFOVVisibility()
     fovCircle.Visible = AimbotEnabled and not FOVHidden
@@ -1350,11 +1367,28 @@ RunService:BindToRenderStep("MobileAimbot", 1, function()
     if not AimbotEnabled then return end
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
     
-    local target = GetClosestPlayerInFOV()
+    local target
+    if LockEnabled then
+        if LockedPlayer and 
+           LockedPlayer.Character and 
+           LockedPlayer.Character:FindFirstChild("Humanoid") and 
+           LockedPlayer.Character.Humanoid.Health > 0 then
+            target = LockedPlayer
+        else
+            LockedPlayer = GetClosestPlayerInFOV()
+            target = LockedPlayer
+        end
+    else
+        target = GetClosestPlayerInFOV()
+    end
+    
     if target and target.Character and target.Character:FindFirstChild(AimbotTarget) then
         local targetPos = target.Character[AimbotTarget].Position
         local targetCFrame = CFrame.new(Camera.CFrame.Position, targetPos)
-        Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 0.5)
+        
+        -- Tính toán độ mượt dựa trên AimbotSpeed
+        local smoothness = math.clamp(1 - (AimbotSpeed / 500), 0, 0.99)
+        Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 1 - smoothness)
     end
 end)
 
@@ -1447,7 +1481,7 @@ sections.AimSection1:Slider({
 }, "FOVSizeSlider")
 
 -- Dropdown Aimbot Target
-sections.AimSection1:Dropdown({
+sections.Aim2Section1:Dropdown({
     Name = "Vị Trí Nhắm",
     Multi = false,
     Required = true,
@@ -1462,7 +1496,7 @@ sections.AimSection1:Dropdown({
 }, "AimbotTargetDropdown")
 
 -- Dropdown Aimbot Range
-sections.AimSection1:Dropdown({
+sections.Aim2Section1:Dropdown({
     Name = "Tầm Xa Aimbot",
     Multi = false,
     Required = true,
@@ -1490,7 +1524,7 @@ sections.AimSection1:Dropdown({
 }, "AimbotRangeDropdown")
 
 -- Thêm vào phần sections.AimSection1
-sections.AimSection1:Slider({
+sections.Aim2Section1:Slider({
     Name = "Khoảng Cách Aim",
     Default = 50,
     Minimum = 0,
@@ -1503,9 +1537,49 @@ sections.AimSection1:Slider({
     end
 })
 
+sections.Aim2Section1:Toggle({
+    Name = "Khóa Người",
+    Default = false,
+    Callback = function(value)
+        LockEnabled = value
+        if not value then
+            LockedPlayer = nil -- Reset locked player khi tắt lock mode
+        end
+        Window:Notify({
+            Title = "Lock Mode đã được " .. (value and "Bật" or "Tắt")
+        })
+    end
+}, "LockModeToggle")
+
+-- Thêm Button để Reset Lock Target (nếu muốn)
+----sections.AimSection1:Button({
+   --- Name = "Cài Lại Khóa",
+   --- Callback = function()
+        ---LockedPlayer = nil
+        ---Window:Notify({
+            ---Title = "Đã reset locked target"
+       -- })
+    --end
+--})
+
+sections.Aim2Section1:Slider({
+    Name = "Tốc Độ Aimbot",
+    Default = 100,
+    Minimum = 1,
+    Maximum = 500,
+    DisplayMethod = "Value",
+    Precision = 0,
+    Callback = function(Value)
+        AimbotSpeed = Value
+        Window:Notify({
+            Title = "Tốc độ aimbot: " .. Value
+        })
+    end
+}, "AimbotSpeedSlider")
+
 
 -- Colorpicker FOV Color
-sections.AimSection1:Colorpicker({
+sections.Aim2Section1:Colorpicker({
     Name = "Màu Vòng Tròn",
     Default = Color3.fromRGB(255, 255, 255),
     Callback = function(color)
@@ -3191,7 +3265,496 @@ sections.Pla2Section1:Toggle({
         end
     end
 })
+---------------------------------------
+sections.EspMSection1:Paragraph({
+	Header = "Chức Năng Này Hiện Chưa Ổn Định",
+	Body = "Sẽ Esp Chams Lên Tất Cả Item Và Model"
+})
 
+sections.EspMSection1:Toggle({
+    Name = "ESPM Chams",
+    Default = false,
+    Callback = function(value)
+        if value then
+            local RunService = game:GetService("RunService")
+            local Players = game:GetService("Players")
+            local LocalPlayer = Players.LocalPlayer
+            
+            if not getgenv().espHighlights then
+                getgenv().espHighlights = {}
+            end
+            
+            if not getgenv().trackedObjects then
+                getgenv().trackedObjects = {}
+            end
+
+            local function hasClickDetector(object)
+                if object:IsA("BasePart") and object:FindFirstChildOfClass("ClickDetector") then
+                    return true
+                elseif object:IsA("Model") then
+                    for _, part in ipairs(object:GetDescendants()) do
+                        if part:FindFirstChildOfClass("ClickDetector") then
+                            return true
+                        end
+                    end
+                end
+                return false
+            end
+
+            local function createHighlight(object, color)
+                if object:FindFirstChild("Highlight") then return end
+                
+                local highlight = Instance.new("Highlight")
+                highlight.FillColor = color or Color3.fromRGB(255, 0, 0)
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                highlight.FillTransparency = 0.5
+                highlight.OutlineTransparency = 0
+                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                highlight.Parent = object
+                
+                table.insert(getgenv().espHighlights, highlight)
+                return highlight
+            end
+
+            local function updateHighlight(object)
+                if not object or not object.Parent then return end
+                
+                local highlight = object:FindFirstChild("Highlight")
+                if not highlight then return end
+                
+                -- Cập nhật màu sắc dựa trên loại đối tượng
+                if object:IsA("Model") and object:FindFirstChild("Humanoid") then
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Màu đỏ cho NPC
+                else
+                    highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Màu xanh cho items
+                end
+            end
+
+            local function handleESP(object)
+                -- Xử lý objects có ClickDetector
+                if hasClickDetector(object) then
+                    if not getgenv().trackedObjects[object] then
+                        local pos = object:IsA("Model") and 
+                            (object:GetPrimaryPartCFrame() and object:GetPrimaryPartCFrame().Position or object:GetModelCFrame().Position) or 
+                            object.Position
+                        getgenv().trackedObjects[object] = {
+                            isItem = true,
+                            lastPosition = pos
+                        }
+                    end
+                    createHighlight(object, Color3.fromRGB(0, 0, 255))
+                end
+                
+                -- Xử lý models có Humanoid (NPC)
+                if object:IsA("Model") and object:FindFirstChild("Humanoid") then
+                    local isPlayer = false
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player.Character == object then
+                            isPlayer = true
+                            break
+                        end
+                    end
+                    
+                    if not isPlayer then
+                        if not getgenv().trackedObjects[object] then
+                            getgenv().trackedObjects[object] = {
+                                isNPC = true,
+                                lastPosition = object:GetPrimaryPartCFrame().Position
+                            }
+                        end
+                        createHighlight(object, Color3.fromRGB(255, 0, 0))
+                        
+                        -- Theo dõi di chuyển của NPC
+                        if not object:GetAttribute("ESP_Tracking") then
+                            object:SetAttribute("ESP_Tracking", true)
+                            local humanoid = object:FindFirstChild("Humanoid")
+                            if humanoid then
+                                humanoid.Running:Connect(function()
+                                    if getgenv().trackedObjects[object] then
+                                        updateHighlight(object)
+                                    end
+                                end)
+                            end
+                        end
+                    end
+                end
+            end
+
+            local function cleanupObject(object)
+                if getgenv().trackedObjects[object] then
+                    getgenv().trackedObjects[object] = nil
+                end
+                if object:FindFirstChild("Highlight") then
+                    local highlight = object.Highlight
+                    for i, stored_highlight in ipairs(getgenv().espHighlights) do
+                        if stored_highlight == highlight then
+                            table.remove(getgenv().espHighlights, i)
+                            break
+                        end
+                    end
+                    highlight:Destroy()
+                end
+            end
+
+            -- Khởi tạo ESP cho objects hiện có
+            for _, object in ipairs(workspace:GetDescendants()) do
+                handleESP(object)
+            end
+
+            local descendantAddedConnection = workspace.DescendantAdded:Connect(function(object)
+                task.wait()
+                handleESP(object)
+            end)
+
+            local descendantRemovingConnection = workspace.DescendantRemoving:Connect(cleanupObject)
+
+            local heartbeatConnection = RunService.Heartbeat:Connect(function()
+                for object, data in pairs(getgenv().trackedObjects) do
+                    if object and object.Parent then
+                        local currentPos
+                        if object:IsA("Model") and object:FindFirstChild("HumanoidRootPart") then
+                            currentPos = object.HumanoidRootPart.Position
+                        else
+                            currentPos = object:IsA("Model") and 
+                                (object:GetPrimaryPartCFrame() and object:GetPrimaryPartCFrame().Position or object:GetModelCFrame().Position) or 
+                                object.Position
+                        end
+                        
+                        -- Cập nhật vị trí cuối cùng
+                        if data.lastPosition then
+                            local distance = (currentPos - data.lastPosition).Magnitude
+                            if distance > 0.1 then
+                                -- Object đang di chuyển
+                                updateHighlight(object)
+                            end
+                        end
+                        data.lastPosition = currentPos
+                    else
+                        getgenv().trackedObjects[object] = nil
+                    end
+                end
+            end)
+
+            getgenv().ESPConnections = {
+                descendantAdded = descendantAddedConnection,
+                descendantRemoving = descendantRemovingConnection,
+                heartbeat = heartbeatConnection
+            }
+
+        else
+            -- Cleanup khi tắt ESP
+            if getgenv().ESPConnections then
+                for _, connection in pairs(getgenv().ESPConnections) do
+                    if connection then
+                        connection:Disconnect()
+                    end
+                end
+            end
+
+            if getgenv().espHighlights then
+                for _, highlight in ipairs(getgenv().espHighlights) do
+                    if highlight and highlight.Parent then
+                        highlight:Destroy()
+                    end
+                end
+                table.clear(getgenv().espHighlights)
+            end
+
+            if getgenv().trackedObjects then
+                for object, _ in pairs(getgenv().trackedObjects) do
+                    if object then
+                        object:SetAttribute("ESP_Tracking", nil)
+                    end
+                end
+                table.clear(getgenv().trackedObjects)
+            end
+        end
+
+        Window:Notify({
+            Title = Window.Settings.Title,
+            Content = value and "ESP Enabled" or "ESP Disabled",
+            Duration = 3
+        })
+    end,
+}, "Toggle")
+----------------------
+local ESP = {
+    Enabled = false,
+    espLabels = {},
+    trackedObjects = {},
+    Connections = {}
+}
+
+sections.EspMSection1:Toggle({
+    Name = "ESP Tên",
+    Default = false,
+    Callback = function(value)
+        ESP.Enabled = value
+        
+        if value then
+            local RunService = game:GetService("RunService")
+            local Players = game:GetService("Players")
+
+            local function getObjectColor(object)
+                if object:IsA("BasePart") then
+                    return object.Color
+                elseif object:IsA("Model") then
+                    local part = object.PrimaryPart or object:FindFirstChildWhichIsA("BasePart")
+                    return part and part.Color or Color3.new(1, 1, 1)
+                end
+                return Color3.new(1, 1, 1)
+            end
+
+            local function createLabel(object)
+                local billboard = Instance.new("BillboardGui")
+                billboard.Name = "ESPLabel"
+                billboard.AlwaysOnTop = true
+                billboard.Size = UDim2.new(0, 100, 0, 25)
+                billboard.StudsOffset = Vector3.new(0, 1.5, 0)
+                billboard.MaxDistance = 100
+
+                local whiteGlowLayers = {
+                    {size = 19, transparency = 0.7},
+                    {size = 18, transparency = 0.6},
+                    {size = 17, transparency = 0.5},
+                }
+
+                local coloredLayers = {
+                    {size = 16, transparency = 0.2},
+                    {size = 15, transparency = 0.1},
+                    {size = 14, transparency = 0},
+                }
+
+                for _, layer in ipairs(whiteGlowLayers) do
+                    local label = Instance.new("TextLabel")
+                    label.BackgroundTransparency = 1
+                    label.Size = UDim2.new(1, 0, 1, 0)
+                    label.Font = Enum.Font.GothamBold
+                    label.TextSize = layer.size
+                    label.TextTransparency = layer.transparency
+                    label.TextStrokeTransparency = 0
+                    label.TextStrokeColor3 = Color3.new(0, 0, 0)
+                    label.TextColor3 = Color3.new(1, 1, 1)
+                    
+                    if object:IsA("Model") and object:FindFirstChild("Humanoid") then
+                        label.Text = "⚔️ " .. object.Name
+                    else
+                        label.Text = "📦 " .. object.Name
+                    end
+                    
+                    label.Parent = billboard
+                end
+
+                local objectColor = getObjectColor(object)
+                for _, layer in ipairs(coloredLayers) do
+                    local label = Instance.new("TextLabel")
+                    label.BackgroundTransparency = 1
+                    label.Size = UDim2.new(1, 0, 1, 0)
+                    label.Font = Enum.Font.GothamBold
+                    label.TextSize = layer.size
+                    label.TextTransparency = layer.transparency
+                    label.TextStrokeTransparency = 0
+                    label.TextStrokeColor3 = Color3.new(0, 0, 0)
+                    label.TextColor3 = objectColor
+                    
+                    if object:IsA("Model") and object:FindFirstChild("Humanoid") then
+                        label.Text = "⚔️ " .. object.Name
+                    else
+                        label.Text = "📦 " .. object.Name
+                    end
+                    
+                    label.Parent = billboard
+                end
+
+                if object:IsA("Model") then
+                    local humanoidRootPart = object:FindFirstChild("HumanoidRootPart")
+                    if humanoidRootPart then
+                        billboard.Parent = humanoidRootPart
+                    else
+                        billboard.Parent = object.PrimaryPart or object:FindFirstChild("Head") or object:FindFirstChildWhichIsA("BasePart")
+                    end
+                else
+                    billboard.Parent = object
+                end
+
+                local glowEffect = true
+                spawn(function()
+                    while billboard and billboard.Parent and ESP.Enabled do
+                        if glowEffect then
+                            for i, label in ipairs(billboard:GetChildren()) do
+                                local sinVal = math.abs(math.sin(tick() * 2))
+                                if i <= #whiteGlowLayers then
+                                    label.TextTransparency = whiteGlowLayers[i].transparency * sinVal
+                                else
+                                    local coloredIndex = i - #whiteGlowLayers
+                                    label.TextTransparency = coloredLayers[coloredIndex].transparency * sinVal
+                                end
+                            end
+                        end
+                        RunService.RenderStepped:Wait()
+                    end
+                end)
+
+                table.insert(ESP.Connections, RunService.RenderStepped:Connect(function()
+                    if billboard.Enabled and Players.LocalPlayer.Character and ESP.Enabled then
+                        local distance = (Players.LocalPlayer.Character:GetPrimaryPartCFrame().Position - billboard.Parent.Position).Magnitude
+                        local alpha = math.clamp(1 - (distance/100), 0.3, 1)
+                        
+                        for i, label in ipairs(billboard:GetChildren()) do
+                            if i <= #whiteGlowLayers then
+                                local baseTransparency = whiteGlowLayers[i].transparency
+                                label.TextTransparency = math.min(1, baseTransparency + (1 - alpha))
+                            else
+                                local coloredIndex = i - #whiteGlowLayers
+                                local baseTransparency = coloredLayers[coloredIndex].transparency
+                                label.TextTransparency = math.min(1, baseTransparency + (1 - alpha))
+                            end
+                        end
+                    end
+                end))
+
+                table.insert(ESP.espLabels, billboard)
+                return billboard
+            end
+
+            local function hasClickDetector(object)
+                if object:IsA("BasePart") then
+                    return object:FindFirstChildOfClass("ClickDetector") ~= nil
+                elseif object:IsA("Model") then
+                    for _, part in ipairs(object:GetDescendants()) do
+                        if part:FindFirstChildOfClass("ClickDetector") then
+                            return true
+                        end
+                    end
+                end
+                return false
+            end
+
+            local function updateLabelColor(object, newColor)
+                local label = object:FindFirstChild("ESPLabel") or object:FindFirstDescendant("ESPLabel")
+                if label then
+                    for i = (#whiteGlowLayers + 1), #label:GetChildren() do
+                        local textLabel = label:GetChildren()[i]
+                        textLabel.TextColor3 = newColor
+                    end
+                end
+            end
+
+            local function handleESP(object)
+                if not ESP.Enabled then return end
+                
+                local isPlayer = false
+                if object:IsA("Model") then
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player.Character == object then
+                            isPlayer = true
+                            break
+                        end
+                    end
+                end
+                
+                if isPlayer then return end
+                
+                if hasClickDetector(object) or (object:IsA("Model") and object:FindFirstChild("Humanoid")) then
+                    createLabel(object)
+                    ESP.trackedObjects[object] = true
+                    
+                    if object:IsA("BasePart") then
+                        local connection = object.Changed:Connect(function(property)
+                            if property == "Color" and ESP.trackedObjects[object] and ESP.Enabled then
+                                updateLabelColor(object, object.Color)
+                            end
+                        end)
+                        table.insert(ESP.Connections, connection)
+                    end
+                    
+                    if object:IsA("Model") and object:FindFirstChild("Humanoid") then
+                        local humanoid = object:FindFirstChild("Humanoid")
+                        if humanoid and not object:GetAttribute("ESP_Connected") then
+                            object:SetAttribute("ESP_Connected", true)
+                            local connection = humanoid.Running:Connect(function()
+                                if object and object.Parent and ESP.trackedObjects[object] and ESP.Enabled then
+                                    local label = object:FindFirstDescendant("ESPLabel")
+                                    if not label then
+                                        createLabel(object)
+                                    end
+                                end
+                            end)
+                            table.insert(ESP.Connections, connection)
+                        end
+                    end
+                end
+            end
+
+            local function cleanupESP(object)
+                if ESP.trackedObjects[object] then
+                    ESP.trackedObjects[object] = nil
+                    for i, label in ipairs(ESP.espLabels) do
+                        if label.Parent and (label.Parent == object or label.Parent:IsDescendantOf(object)) then
+                            table.remove(ESP.espLabels, i)
+                            label:Destroy()
+                            break
+                        end
+                    end
+                end
+            end
+
+            for _, object in ipairs(workspace:GetDescendants()) do
+                handleESP(object)
+            end
+
+            table.insert(ESP.Connections, workspace.DescendantAdded:Connect(function(object)
+                task.wait()
+                if ESP.Enabled then
+                    handleESP(object)
+                end
+            end))
+
+            table.insert(ESP.Connections, workspace.DescendantRemoving:Connect(function(object)
+                if ESP.Enabled then
+                    cleanupESP(object)
+                end
+            end))
+
+            table.insert(ESP.Connections, RunService.Heartbeat:Connect(function()
+                if not ESP.Enabled then return end
+                for object, _ in pairs(ESP.trackedObjects) do
+                    if object and object.Parent then
+                        local hasLabel = false
+                        if object:IsA("Model") then
+                            hasLabel = object:FindFirstDescendant("ESPLabel") ~= nil
+                        else
+                            hasLabel = object:FindFirstChild("ESPLabel") ~= nil
+                        end
+                        
+                        if not hasLabel then
+                            createLabel(object)
+                        end
+                    else
+                        cleanupESP(object)
+                    end
+                end
+            end))
+
+        else
+            -- Cleanup khi tắt ESP
+            for _, label in ipairs(ESP.espLabels) do
+                if label and label.Parent then
+                    label:Destroy()
+                end
+            end
+            
+            for _, connection in ipairs(ESP.Connections) do
+                connection:Disconnect()
+            end
+            
+            ESP.espLabels = {}
+            ESP.trackedObjects = {}
+            ESP.Connections = {}
+        end
+    end
+})
+-------------------
 
 ------------------------------------------------------------------------------------------------------------
 
@@ -3348,6 +3911,10 @@ end)
 
 ------------- thông------------
 sections.MainSection1:Divider()
+
+sections.Main2Section1:Header({
+	Text = "•1Ngày - 3.000 •3Ngày - 9.000 •7Ngày - 18.000 •1Tháng - 69.000!"
+})
 
 sections.MainSection1:Header({
 	Text = "Lưu ý Nút Ẩn UI Sẽ Lưu Vị Trí Nên Bạn Hãy Nó Đến Một Nên Thích Hợp Nhé!"
