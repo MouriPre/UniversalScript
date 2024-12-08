@@ -804,13 +804,48 @@ _G.ChamsSettings = {
 
 -- Cache để lưu role của người chơi
 local PlayerRoles = {}
+local GameState = {
+    IsRoundActive = false
+}
+
+local function MonitorGameState()
+    local function checkRoundStatus()
+        local murderer = false
+        local sheriff = false
+        
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Character then
+                local hasKnife = player.Character:FindFirstChild("Knife") or (player.Backpack and player.Backpack:FindFirstChild("Knife"))
+                local hasGun = player.Character:FindFirstChild("Gun") or (player.Backpack and player.Backpack:FindFirstChild("Gun"))
+                
+                if hasKnife then murderer = true end
+                if hasGun then sheriff = true end
+            end
+        end
+        
+        if not (murderer and sheriff) then
+            if GameState.IsRoundActive then
+                GameState.IsRoundActive = false
+                -- Reset tất cả role khi round kết thúc
+                table.clear(PlayerRoles)
+            end
+        else
+            GameState.IsRoundActive = true
+        end
+    end
+    
+    RunService.Heartbeat:Connect(function()
+        checkRoundStatus()
+    end)
+end
 
 local function UpdatePlayerRole(Player)
     if game.PlaceId ~= 142823291 then return end
+    if not GameState.IsRoundActive then return "Innocent" end
     
     local function CheckTools()
-        if not Player.Character then return end
-        if not Player.Backpack then return end
+        if not Player.Character then return "Innocent" end
+        if not Player.Backpack then return "Innocent" end
         
         -- Check trong character
         for _, tool in pairs(Player.Character:GetChildren()) do
@@ -840,43 +875,44 @@ local function UpdatePlayerRole(Player)
     PlayerRoles[Player.UserId] = CheckTools()
     
     -- Theo dõi thay đổi trong Backpack
-    if not Player.Backpack:FindFirstChild("RoleMonitor") then
+        if not Player.Backpack:FindFirstChild("RoleMonitor") then
         local monitor = Instance.new("BoolValue")
         monitor.Name = "RoleMonitor"
         monitor.Parent = Player.Backpack
         
         Player.Backpack.ChildAdded:Connect(function(child)
-            if child:IsA("Tool") then
+            if child:IsA("Tool") and GameState.IsRoundActive then
                 PlayerRoles[Player.UserId] = CheckTools()
             end
         end)
         
         Player.Backpack.ChildRemoved:Connect(function(child)
-            if child:IsA("Tool") then
+            if child:IsA("Tool") and GameState.IsRoundActive then
                 PlayerRoles[Player.UserId] = CheckTools()
             end
         end)
     end
     
-    -- Theo dõi thay đổi trong Character
     if Player.Character and not Player.Character:FindFirstChild("RoleMonitor") then
         local monitor = Instance.new("BoolValue")
         monitor.Name = "RoleMonitor"
         monitor.Parent = Player.Character
         
         Player.Character.ChildAdded:Connect(function(child)
-            if child:IsA("Tool") then
+            if child:IsA("Tool") and GameState.IsRoundActive then
                 PlayerRoles[Player.UserId] = CheckTools()
             end
         end)
         
         Player.Character.ChildRemoved:Connect(function(child)
-            if child:IsA("Tool") then
+            if child:IsA("Tool") and GameState.IsRoundActive then
                 PlayerRoles[Player.UserId] = CheckTools()
             end
         end)
     end
 end
+
+MonitorGameState()
 
 local function GetPlayerRole(Player)
     if game.PlaceId ~= 142823291 then return "Unknown" end
