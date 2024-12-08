@@ -775,18 +775,24 @@ sections.EspSection1:Toggle({
 
 -------------------------------------
 sections.Esp2Section1:Header({
-	Name = "ESP Chams"
+    Name = "ESP Chams"
 })
 
 _G.ChamsSettings = {
     Enabled = false,
     TeamCheck = false,
+    RoleCheck = false,
     FillTransparency = 0.5,
     OutlineTransparency = 0,
     
     Colors = {
         Fill = Color3.fromRGB(0, 255, 0),
-        Outline = Color3.fromRGB(255, 255, 255)
+        Outline = Color3.fromRGB(255, 255, 255),
+        Roles = {
+            ["Murderer"] = Color3.fromRGB(255, 0, 0),
+            ["Sheriff"] = Color3.fromRGB(0, 0, 255),
+            ["Innocent"] = Color3.fromRGB(0, 255, 0),
+        }
     },
     
     Animation = {
@@ -795,6 +801,92 @@ _G.ChamsSettings = {
         Direction = Enum.EasingDirection.Out
     }
 }
+
+-- Cache để lưu role của người chơi
+local PlayerRoles = {}
+
+local function UpdatePlayerRole(Player)
+    if game.PlaceId ~= 142823291 then return end
+    
+    local function CheckTools()
+        if not Player.Character then return end
+        if not Player.Backpack then return end
+        
+        -- Check trong character
+        for _, tool in pairs(Player.Character:GetChildren()) do
+            if tool:IsA("Tool") then
+                if tool.Name == "Knife" then
+                    return "Murderer"
+                elseif tool.Name == "Gun" then
+                    return "Sheriff"
+                end
+            end
+        end
+        
+        -- Check trong backpack
+        for _, tool in pairs(Player.Backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                if tool.Name == "Knife" then
+                    return "Murderer"
+                elseif tool.Name == "Gun" then
+                    return "Sheriff"
+                end
+            end
+        end
+        
+        return "Innocent"
+    end
+    
+    PlayerRoles[Player.UserId] = CheckTools()
+    
+    -- Theo dõi thay đổi trong Backpack
+    if not Player.Backpack:FindFirstChild("RoleMonitor") then
+        local monitor = Instance.new("BoolValue")
+        monitor.Name = "RoleMonitor"
+        monitor.Parent = Player.Backpack
+        
+        Player.Backpack.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") then
+                PlayerRoles[Player.UserId] = CheckTools()
+            end
+        end)
+        
+        Player.Backpack.ChildRemoved:Connect(function(child)
+            if child:IsA("Tool") then
+                PlayerRoles[Player.UserId] = CheckTools()
+            end
+        end)
+    end
+    
+    -- Theo dõi thay đổi trong Character
+    if Player.Character and not Player.Character:FindFirstChild("RoleMonitor") then
+        local monitor = Instance.new("BoolValue")
+        monitor.Name = "RoleMonitor"
+        monitor.Parent = Player.Character
+        
+        Player.Character.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") then
+                PlayerRoles[Player.UserId] = CheckTools()
+            end
+        end)
+        
+        Player.Character.ChildRemoved:Connect(function(child)
+            if child:IsA("Tool") then
+                PlayerRoles[Player.UserId] = CheckTools()
+            end
+        end)
+    end
+end
+
+local function GetPlayerRole(Player)
+    if game.PlaceId ~= 142823291 then return "Unknown" end
+    
+    if not PlayerRoles[Player.UserId] then
+        UpdatePlayerRole(Player)
+    end
+    
+    return PlayerRoles[Player.UserId] or "Innocent"
+end
 
 local function IsTeammate(Player)
     if not _G.ChamsSettings.TeamCheck then return false end
@@ -805,10 +897,12 @@ local function ApplyChams(Player)
     local Connections = {}
     local CurrentHighlighter
     
+    -- Khởi tạo role monitoring
+    UpdatePlayerRole(Player)
+    
     local function Setup(Character)
         if not Character then return end
         
-        -- Clean up existing highlighter if any
         if CurrentHighlighter then
             CurrentHighlighter:Destroy()
         end
@@ -849,12 +943,40 @@ local function ApplyChams(Player)
             end
             
             Highlighter.Enabled = true
-            Highlighter.FillColor = _G.ChamsSettings.Colors.Fill
-            Highlighter.OutlineColor = _G.ChamsSettings.Colors.Outline
+            
+            if _G.ChamsSettings.RoleCheck then
+                local role = GetPlayerRole(Player)
+                local roleColor = _G.ChamsSettings.Colors.Roles[role]
+                
+                if roleColor then
+                    Highlighter.FillColor = roleColor
+                    Highlighter.OutlineColor = roleColor
+                    print(Player.Name .. " is " .. role) -- Debug
+                else
+                    Highlighter.FillColor = _G.ChamsSettings.Colors.Fill
+                    Highlighter.OutlineColor = _G.ChamsSettings.Colors.Outline
+                end
+            else
+                Highlighter.FillColor = _G.ChamsSettings.Colors.Fill
+                Highlighter.OutlineColor = _G.ChamsSettings.Colors.Outline
+            end
         end
         
         local UpdateConnection = RunService.RenderStepped:Connect(Update)
         table.insert(Connections, UpdateConnection)
+        
+        -- Monitor character changes
+        Character.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") then
+                UpdatePlayerRole(Player)
+            end
+        end)
+        
+        Character.ChildRemoved:Connect(function(child)
+            if child:IsA("Tool") then
+                UpdatePlayerRole(Player)
+            end
+        end)
         
         local Humanoid = Character:FindFirstChild("Humanoid")
         if Humanoid then
@@ -871,20 +993,17 @@ local function ApplyChams(Player)
         end
     end
     
-    -- Initial setup
     if Player.Character then
         Setup(Player.Character)
     end
     
-    -- Handle character respawning
     local CharacterAddedConnection = Player.CharacterAdded:Connect(function(Character)
-        task.wait() -- Wait for character to fully load
+        task.wait()
         Setup(Character)
     end)
     
     table.insert(Connections, CharacterAddedConnection)
     
-    -- Cleanup function
     local function Cleanup()
         for _, Connection in pairs(Connections) do
             Connection:Disconnect()
@@ -892,9 +1011,9 @@ local function ApplyChams(Player)
         if CurrentHighlighter then
             CurrentHighlighter:Destroy()
         end
+        PlayerRoles[Player.UserId] = nil
     end
     
-    -- Handle player removal
     table.insert(Connections, Player.AncestryChanged:Connect(function(_, parent)
         if not parent then
             Cleanup()
@@ -904,7 +1023,7 @@ local function ApplyChams(Player)
     return Cleanup
 end
 
--- Add these to your UI section
+-- UI Controls remain the same as before
 sections.Esp2Section1:Toggle({
     Name = "Hiện Chams",
     Default = false,
@@ -930,6 +1049,14 @@ sections.Esp2Section1:Toggle({
                 end)
             end
         end
+    end
+})
+
+sections.Esp2Section1:Toggle({
+    Name = "Role Check",
+    Default = false,
+    Callback = function(Value)
+        _G.ChamsSettings.RoleCheck = Value
     end
 })
 
@@ -2376,6 +2503,7 @@ local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 
 local animations = {
+    ["Default"] = {}, -- Thêm Default animation trống
     ["Confident"] = {
         idle = 1069977950,
         secondIdle = 1069987858,
@@ -2459,7 +2587,7 @@ local currentAnimator = nil
 local updateConnection = nil
 local idleTimer = 0
 local isSecondIdle = false
-local selectedAnimation = "Confident"
+local selectedAnimation = "Default" -- Đặt Default là mặc định
 
 local function cleanupAnimations()
     if updateConnection then
@@ -2478,6 +2606,11 @@ local function cleanupAnimations()
 end
 
 local function changeAnimation(animName)
+    if animName == "Default" then
+        cleanupAnimations()
+        return
+    end
+
     selectedAnimation = animName
     
     local character = LocalPlayer.Character
@@ -2599,23 +2732,31 @@ end
 
 LocalPlayer.CharacterAdded:Connect(function(character)
     wait(0.5)
-    if selectedAnimation then
+    if selectedAnimation ~= "Default" then
         changeAnimation(selectedAnimation)
     end
 end)
 
 sections.PlaSection1:Dropdown({
     Name = "FE Animation Changer",
-    Default = "Confident",
-    Options = {"Confident", "Popstar", "Patrol", "Sneaky", "Princess", "Cowboy", "Stylized Female"},
+    Default = "Default",
+    Options = {"Default", "Confident", "Popstar", "Patrol", "Sneaky", "Princess", "Cowboy", "Stylized Female"},
     Callback = function(Value)
         changeAnimation(Value)
-        Window:Notify({
-            Title = "Animation Changer",
-            Content = "Đã đổi sang animation " .. Value
-        })
+        if Value ~= "Default" then
+            Window:Notify({
+                Title = "Animation Changer",
+                Content = "Đã đổi sang animation " .. Value
+            })
+        else
+            Window:Notify({
+                Title = "Animation Changer", 
+                Content = "Đã trở về animation mặc định"
+            })
+        end
     end
 }, "AnimationChanger")
+
 -------------------------
 local Player = game:GetService("Players").LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
