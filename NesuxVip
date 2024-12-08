@@ -1628,20 +1628,20 @@ sections.Aim2Section1:Dropdown({
     Multi = false,
     Required = true,
     Options = {
-        "Cấp 1 (50m)",
-        "Cấp 2 (100m)",
-        "Cấp 3 (150m)",
-        "Cấp 4 (300m)",
-        "Cấp 5 (1000m)"
+        "Mức 1 (50m)",
+        "Mức 2 (100m)",
+        "Mức 3 (150m)",
+        "Mức 4 (300m)",
+        "Mức 5 (1000m)"
     },
     Default = 1,
     Callback = function(Value)
         local ranges = {
-            ["Cấp 1 (50m)"] = 50,
-            ["Cấp 2 (100m)"] = 100,
-            ["Cấp 3 (150m)"] = 150,
-            ["Cấp 4 (300m)"] = 300,
-            ["Cấp 5 (1000m)"] = 1000
+            ["Mức 1 (50m)"] = 50,
+            ["Mức 2 (100m)"] = 100,
+            ["Mức 3 (150m)"] = 150,
+            ["Mức 4 (300m)"] = 300,
+            ["Mức 5 (1000m)"] = 1000
         }
         AimbotRange = ranges[Value]
         Window:Notify({
@@ -4058,7 +4058,7 @@ sections.Main2Section1:Header({
 })
 
 sections.MainSection1:Header({
-	Text = "Lưu ý Nút Ẩn UI Sẽ Lưu Vị Trí Nơi Bạn Hãy Nó Đến Một Nên Thích Hợp Nhé!"
+	Text = "Lưu ý Nút Ẩn UI Sẽ Lưu Vị Trí Nên Bạn Hãy Nó Đến Một Nên Thích Hợp Nhé!"
 })
 
 sections.MainSection1:Paragraph({
