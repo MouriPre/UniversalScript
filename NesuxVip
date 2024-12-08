@@ -4058,7 +4058,7 @@ sections.Main2Section1:Header({
 })
 
 sections.MainSection1:Header({
-	Text = "Lưu ý Nút Ẩn UI Sẽ Lưu Vị Trí Nên Bạn Hãy Nó Đến Một Nên Thích Hợp Nhé!"
+	Text = "Lưu ý Nút Ẩn UI Sẽ Lưu Vị Trí Nơi Bạn Hãy Nó Đến Một Nên Thích Hợp Nhé!"
 })
 
 sections.MainSection1:Paragraph({
