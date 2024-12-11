@@ -4131,10 +4131,7 @@ sections.EspSection1:Toggle({
     end
 }, "WatchingESP")
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService") 
-local TweenService = game:GetService("TweenService")
-local LocalPlayer = Players.LocalPlayer
+
 
 -- UI Creation
 local ScreenGui = Instance.new("ScreenGui")
