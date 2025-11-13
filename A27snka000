@@ -1,9 +1,9 @@
 local MacLib = loadstring(game:HttpGet("https://github.com/biggaboy212/Maclib/releases/latest/download/maclib.txt"))()
 
 local Window = MacLib:Window({
-	Title = "Nesux X MacUI",
+	Title = "Nesux Comeback",
 	Subtitle = "Bởi Muori Bản Trả Phí.",
-	Size = UDim2.fromOffset(700, 500),
+	Size = UDim2.fromOffset(400, 500),
 	DragStyle = 1,
 	DisabledWindowControls = {},
 	ShowUserInfo = true,
